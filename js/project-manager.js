@@ -102,6 +102,7 @@ export class ProjectManager {
                     name: l.name,
                     opacity: l.opacity,
                     visible: l.visible,
+                    blendMode: l.blendMode || 'normal',
                     data: lCanvas.toDataURL('image/png')
                 };
             });
@@ -119,11 +120,35 @@ export class ProjectManager {
         const proj = this.getProject();
         if (!proj || !proj.sprites[id]) return;
         this.editor.autoSave();
+        this._saveUndoStack();
         this.currentSpriteId = id;
         proj.lastEdited = id;
         this._save();
         this.editor.loadSprite(proj.sprites[id]);
+        this._restoreUndoStack();
         this.renderGallery();
+    }
+
+    _saveUndoStack() {
+        if (!this.currentSpriteId) return;
+        if (!this._undoStacks) this._undoStacks = {};
+        this._undoStacks[this.currentSpriteId] = {
+            undo: this.editor._undoStack.slice(),
+            redo: this.editor._redoStack.slice()
+        };
+    }
+
+    _restoreUndoStack() {
+        if (!this._undoStacks) this._undoStacks = {};
+        const saved = this._undoStacks[this.currentSpriteId];
+        if (saved) {
+            this.editor._undoStack = saved.undo;
+            this.editor._redoStack = saved.redo;
+        } else {
+            this.editor._undoStack = [];
+            this.editor._redoStack = [];
+        }
+        this.editor._updateUndoRedoState();
     }
 
     addSprite(name, w, h) {
@@ -302,13 +327,65 @@ export class ProjectManager {
         reader.readAsDataURL(file);
     }
 
+    addTagToSprite(id, tag) {
+        const proj = this.getProject();
+        if (!proj || !proj.sprites[id]) return;
+        const sprite = proj.sprites[id];
+        if (!sprite.tags) sprite.tags = [];
+        tag = tag.trim().toLowerCase();
+        if (!tag || sprite.tags.includes(tag)) return;
+        sprite.tags.push(tag);
+        this._save();
+        this.renderGallery();
+    }
+
+    removeTagFromSprite(id, tag) {
+        const proj = this.getProject();
+        if (!proj || !proj.sprites[id]) return;
+        const sprite = proj.sprites[id];
+        if (!sprite.tags) return;
+        sprite.tags = sprite.tags.filter(t => t !== tag);
+        this._save();
+        this.renderGallery();
+    }
+
+    getAllTags() {
+        const proj = this.getProject();
+        if (!proj) return [];
+        const tags = new Set();
+        for (const sprite of Object.values(proj.sprites)) {
+            if (sprite.tags) sprite.tags.forEach(t => tags.add(t));
+        }
+        return [...tags].sort();
+    }
+
     renderGallery() {
         const proj = this.getProject();
         if (!proj) return;
         const gallery = document.getElementById('sprite-gallery');
         gallery.innerHTML = '';
 
+        const allTags = this.getAllTags();
+        const filterEl = document.getElementById('sprite-tag-filter');
+        filterEl.innerHTML = '';
+        if (allTags.length > 0) {
+            const allBtn = document.createElement('button');
+            allBtn.className = 'tag-filter-btn' + (!this._tagFilter ? ' active' : '');
+            allBtn.textContent = 'All';
+            allBtn.addEventListener('click', () => { this._tagFilter = null; this.renderGallery(); });
+            filterEl.appendChild(allBtn);
+            for (const tag of allTags) {
+                const btn = document.createElement('button');
+                btn.className = 'tag-filter-btn' + (this._tagFilter === tag ? ' active' : '');
+                btn.textContent = tag;
+                btn.addEventListener('click', () => { this._tagFilter = tag; this.renderGallery(); });
+                filterEl.appendChild(btn);
+            }
+        }
+
         for (const [id, sprite] of Object.entries(proj.sprites)) {
+            if (this._tagFilter && (!sprite.tags || !sprite.tags.includes(this._tagFilter))) continue;
+
             const thumb = document.createElement('div');
             thumb.className = 'sprite-thumb' + (id === this.currentSpriteId ? ' active' : '');
             thumb.dataset.id = id;
@@ -326,6 +403,9 @@ export class ProjectManager {
 
             const label = document.createElement('span');
             label.textContent = sprite.name;
+            if (sprite.tags && sprite.tags.length > 0) {
+                label.textContent += ' [' + sprite.tags.join(', ') + ']';
+            }
 
             thumb.appendChild(canvas);
             thumb.appendChild(label);
@@ -394,6 +474,19 @@ export class ProjectManager {
             this.renderGallery();
             this._updateProjectName();
             this.editor.togglePanel('sprites-panel');
+        });
+
+        document.getElementById('btn-add-tag').addEventListener('click', () => {
+            const input = document.getElementById('sprite-tag-input');
+            if (input.value.trim() && this.currentSpriteId) {
+                this.addTagToSprite(this.currentSpriteId, input.value);
+                input.value = '';
+            }
+        });
+        document.getElementById('sprite-tag-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('btn-add-tag').click();
+            }
         });
 
         document.getElementById('btn-save-png').addEventListener('click', () => this.exportPNG());

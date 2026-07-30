@@ -76,6 +76,12 @@
                 <button class="tool-btn" data-tool="darken" title="Darken (9)" aria-label="Darken tool" aria-pressed="false" data-tooltip="Brush that decreases brightness of pixels you paint over.">
                     <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-4.97-4.03-9-9-9zm0 16a7 7 0 010-14v14z"/></svg>
                 </button>
+                <button class="tool-btn" data-tool="rect" title="Rectangle" aria-label="Rectangle tool" aria-pressed="false" data-tooltip="Click and drag to draw a rectangle. Hold Shift for filled rectangle.">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" fill="none" stroke="currentColor" stroke-width="2" rx="1"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="ellipse" title="Ellipse" aria-label="Ellipse tool" aria-pressed="false" data-tooltip="Click and drag to draw an ellipse. Hold Shift for filled ellipse.">
+                    <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
                 <button class="tool-btn" data-tool="recolor" title="Replace Color" aria-label="Replace color tool" aria-pressed="false" data-tooltip="Click a pixel to replace ALL pixels of that color with your current color (global, not just contiguous).">
                     <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9" fill="currentColor" opacity="0.6"/><path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 </button>
@@ -93,6 +99,9 @@
                 <button id="btn-sel-delete" class="action-btn sel-action" title="Delete Selection" aria-label="Delete selection" hidden>
                     <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                 </button>
+                <button id="btn-sel-move" class="action-btn sel-action sel-mode active" title="Move" aria-label="Move selection" data-tooltip="Drag to reposition the selected pixels" hidden>M</button>
+                <button id="btn-sel-rotate" class="action-btn sel-action sel-mode" title="Rotate" aria-label="Rotate selection" data-tooltip="Drag from a corner to rotate the selection freely" hidden>R</button>
+                <button id="btn-sel-stretch" class="action-btn sel-action sel-mode" title="Stretch" aria-label="Free transform selection" data-tooltip="Drag to scale/resize the selection (free transform)" hidden>S</button>
                 <div id="color-swatch-btn" title="Colors" role="button" aria-label="Open color panel" tabindex="0">
                     <div id="primary-swatch"></div>
                     <div id="secondary-swatch"></div>
@@ -143,6 +152,23 @@
                         <button id="btn-lighter" title="Lighter" aria-label="Make color lighter">+L</button>
                         <button id="btn-darker" title="Darker" aria-label="Make color darker">-L</button>
                     </div>
+                    <div id="palette-toolbar">
+                        <select id="preset-palette-select" aria-label="Load preset palette">
+                            <option value="">Presets...</option>
+                            <option value="PICO-8">PICO-8</option>
+                            <option value="Game Boy">Game Boy</option>
+                            <option value="NES">NES</option>
+                            <option value="Endesga 32">Endesga 32</option>
+                            <option value="Sweetie 16">Sweetie 16</option>
+                            <option value="Resurrect 64">Resurrect 64</option>
+                        </select>
+                        <button id="btn-palette-lock" title="Palette Lock" aria-label="Toggle palette lock" data-tooltip="When active, any color you pick snaps to the nearest color in your palette">Off</button>
+                        <button id="btn-gen-ramp" title="Generate Ramp" aria-label="Generate color ramp" data-tooltip="Fill palette with a gradient ramp from primary to secondary color">Ramp</button>
+                        <button id="btn-indexed-mode" title="Indexed Mode" aria-label="Toggle indexed mode" data-tooltip="Indexed color mode: changing a palette slot recolors all matching pixels on canvas">Idx</button>
+                        <button id="btn-save-palette" title="Save Palette" aria-label="Save palette" data-tooltip="Export your palette as a .hex file (one color per line)">Save</button>
+                        <button id="btn-load-palette" title="Load Palette" aria-label="Load palette" data-tooltip="Import a palette from a .hex, .pal, or .gpl file">Load</button>
+                        <input type="file" id="file-load-palette" accept=".hex,.pal,.gpl,.txt" style="display:none">
+                    </div>
                     <div id="custom-palette" aria-label="Custom palette"></div>
                     <div id="recent-colors" aria-label="Recent colors"></div>
                 </div>
@@ -158,6 +184,11 @@
                     <button id="btn-new-sprite" title="New Sprite" aria-label="Add new sprite">+ New</button>
                     <button id="btn-delete-sprite" title="Delete current sprite" aria-label="Delete current sprite" class="danger-btn">Del</button>
                 </div>
+                <div id="sprite-tags-row">
+                    <input type="text" id="sprite-tag-input" placeholder="Tag sprite..." spellcheck="false" aria-label="Add tag to current sprite" style="flex:1;height:30px;background:#222;border:1px solid #444;border-radius:6px;color:#fff;font-size:12px;padding:0 8px;">
+                    <button id="btn-add-tag" style="height:30px;padding:0 8px;border:none;border-radius:6px;background:#2a2a4a;color:#ccc;font-size:12px;cursor:pointer;">+Tag</button>
+                </div>
+                <div id="sprite-tag-filter" aria-label="Filter by tag"></div>
                 <div id="sprite-gallery" role="list" aria-label="Sprites"></div>
             </div>
         </div>
@@ -218,16 +249,44 @@
                         <input type="color" id="grid-color" value="#ffffff" aria-label="Grid line color" style="width:36px;height:36px;border:none;border-radius:6px;padding:2px;cursor:pointer;background:#2a2a4a;">
                     </div>
                     <div class="settings-row">
-                        <label data-tooltip="Draw symmetrically: H=horizontal mirror, V=vertical, HV=both axes">Mirror</label>
-                        <button id="btn-mirror" class="toggle-btn" aria-label="Cycle mirror mode" aria-pressed="false">Off</button>
+                        <label data-tooltip="Set a custom grid spacing (in pixels) for tile alignment guides">Grid Spacing</label>
+                        <input type="number" id="grid-spacing" min="2" max="128" value="8" style="width:50px;height:36px;background:#222;border:1px solid #444;border-radius:6px;color:#fff;text-align:center;" aria-label="Grid spacing in pixels">
+                        <button id="btn-9slice" class="toggle-btn" data-tooltip="Show 9-slice guide overlay for UI sprite slicing" aria-label="Toggle 9-slice guide" aria-pressed="false">9-Slice</button>
+                    </div>
+                    <div class="settings-row">
+                        <label data-tooltip="Draw symmetrically: mirrors or rotates your strokes around the canvas center">Mirror</label>
+                        <select id="mirror-select" style="height:36px;background:#222;border:1px solid #444;border-radius:6px;color:#fff;font-size:12px;padding:0 6px;" aria-label="Mirror/symmetry mode">
+                            <option value="off">Off</option>
+                            <option value="h">Horizontal</option>
+                            <option value="v">Vertical</option>
+                            <option value="both">H + V</option>
+                            <option value="rot3">Rotate 3-fold</option>
+                            <option value="rot4">Rotate 4-fold</option>
+                            <option value="rot6">Rotate 6-fold</option>
+                        </select>
                     </div>
                     <div class="settings-row">
                         <label data-tooltip="Prevent drawing on fully transparent pixels — only paint within existing shapes">Lock Alpha</label>
                         <button id="btn-tlock" class="toggle-btn" aria-label="Toggle transparency lock" aria-pressed="false">Off</button>
                     </div>
                     <div class="settings-row">
-                        <label for="touch-offset">Touch Offset</label>
-                        <input type="range" id="touch-offset" min="0" max="100" value="50" aria-label="Touch cursor offset distance">
+                        <label data-tooltip="Pixel-perfect line correction: removes double pixels from freehand strokes">Stabilize</label>
+                        <button id="btn-stabilize" class="toggle-btn" aria-label="Toggle pixel-perfect stabilization" aria-pressed="false">Off</button>
+                    </div>
+                    <div class="settings-row">
+                        <label data-tooltip="Layer blend mode: how this layer composites over layers below">Blend</label>
+                        <select id="blend-mode-select" style="height:36px;background:#222;border:1px solid #444;border-radius:6px;color:#fff;font-size:12px;padding:0 6px;" aria-label="Layer blend mode">
+                            <option value="normal">Normal</option>
+                            <option value="multiply">Multiply</option>
+                            <option value="screen">Screen</option>
+                            <option value="overlay">Overlay</option>
+                            <option value="add">Add</option>
+                            <option value="subtract">Subtract</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="touch-offset" data-tooltip="Distance (px) the drawing cursor sits above your finger. 0 = draw directly under finger. Higher = further above for visibility.">Touch Offset</label>
+                        <input type="range" id="touch-offset" min="0" max="150" value="50" aria-label="Touch cursor offset distance">
                         <span id="touch-offset-val">50</span>
                     </div>
                     <div class="settings-row">
@@ -249,6 +308,17 @@
                     <div class="settings-row buttons-row">
                         <button id="btn-extract-palette" aria-label="Extract palette from sprite" data-tooltip="Find the most-used colors in the sprite and add them to your custom palette">Extract Palette</button>
                         <button id="btn-clear" aria-label="Clear canvas" data-tooltip="Erase all pixels on the current layer to transparency">Clear</button>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Selection</h3>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-sel-all-color" aria-label="Select all of current color" data-tooltip="Select all pixels on the canvas matching the primary color (global, not contiguous)">All of Color</button>
+                        <button id="btn-sel-invert" aria-label="Invert selection" data-tooltip="Invert the current wand/color selection">Invert</button>
+                    </div>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-sel-grow" aria-label="Grow selection" data-tooltip="Expand the selection outward by 1 pixel">Grow</button>
+                        <button id="btn-sel-shrink" aria-label="Shrink selection" data-tooltip="Contract the selection inward by 1 pixel">Shrink</button>
                     </div>
                 </div>
                 <div class="settings-section">
@@ -311,26 +381,40 @@
                     <button id="help-modal-close" aria-label="Close help">&times;</button>
                 </div>
                 <div class="modal-body help-body">
-                    <h4>Tools</h4>
+                    <h4>Drawing Tools</h4>
                     <dl class="help-list">
-                        <dt>Draw</dt><dd>Place pixels with the current color. Hold and drag to paint continuously.</dd>
-                        <dt>Erase</dt><dd>Remove pixels, making them transparent.</dd>
-                        <dt>Fill</dt><dd>Flood-fill a contiguous area of the same color with the current color.</dd>
+                        <dt>Draw (1)</dt><dd>Place pixels with the current color. Hold and drag to paint continuously.</dd>
+                        <dt>Erase (2)</dt><dd>Remove pixels, making them transparent. Right-click also erases.</dd>
+                        <dt>Fill (3)</dt><dd>Flood-fill a contiguous area of the same color with the current color.</dd>
                         <dt>Dither</dt><dd>Fill an area with a checkerboard dither pattern using the primary and secondary colors.</dd>
                         <dt>Erase Fill</dt><dd>Click a contiguous region of the same color to erase it all to transparency.</dd>
-                        <dt>Magic Wand</dt><dd>Select a contiguous region of identical color. Then use Delete to erase it or Fill to recolor it.</dd>
-                        <dt>Pick</dt><dd>Sample a color from the canvas and set it as the current color.</dd>
-                        <dt>Select</dt><dd>Draw a rectangle to select a region. Drag to move it. Use the toolbar buttons to fill or delete the selection.</dd>
-                        <dt>Line</dt><dd>Click and drag to draw a straight line between two points.</dd>
-                        <dt>Circle</dt><dd>Click and drag to draw a circle outline from center to edge.</dd>
+                        <dt>Magic Wand (W)</dt><dd>Select a contiguous region of identical color. Then use Delete to erase it or Fill to recolor it.</dd>
+                        <dt>Pick (4)</dt><dd>Sample a color from the canvas and set it as the current color. Long-press on touch also picks.</dd>
+                        <dt>Replace Color</dt><dd>Click any pixel to replace ALL matching pixels on the canvas with your current color.</dd>
+                        <dt>Lighten (8)</dt><dd>Increase the lightness of pixels you paint over. Adjust power in settings.</dd>
+                        <dt>Darken (9)</dt><dd>Decrease the lightness of pixels you paint over. Adjust power in settings.</dd>
+                    </dl>
+                    <h4>Shape Tools</h4>
+                    <dl class="help-list">
+                        <dt>Line (6)</dt><dd>Click and drag to draw a straight line between two points.</dd>
+                        <dt>Circle (7)</dt><dd>Click and drag to draw a circle outline from center to edge.</dd>
+                        <dt>Rectangle (R)</dt><dd>Click and drag to draw a rectangle outline. Hold Shift for a filled rectangle.</dd>
+                        <dt>Ellipse (E)</dt><dd>Click and drag to draw an ellipse outline. Hold Shift for a filled ellipse.</dd>
                         <dt>Gradient</dt><dd>Click and drag to create a linear gradient between the primary and secondary colors.</dd>
-                        <dt>Lighten</dt><dd>Increase the lightness of pixels you paint over.</dd>
-                        <dt>Darken</dt><dd>Decrease the lightness of pixels you paint over.</dd>
+                    </dl>
+                    <h4>Selection</h4>
+                    <dl class="help-list">
+                        <dt>Select (5)</dt><dd>Draw a rectangle to select a region. Drag to move it. Fill or Delete with toolbar buttons.</dd>
+                        <dt>Selection Modes</dt><dd>After lifting a selection, use M/R/S buttons: Move (drag to reposition), Rotate (drag to rotate freely), Stretch (drag to scale/resize).</dd>
+                        <dt>All of Color</dt><dd>Select every pixel on the canvas matching the primary color (global, not contiguous).</dd>
+                        <dt>Invert</dt><dd>Flip the selection: selected pixels become unselected and vice versa.</dd>
+                        <dt>Grow / Shrink</dt><dd>Expand or contract the selection boundary by 1 pixel.</dd>
+                        <dt>Copy / Paste</dt><dd>Ctrl+C copies selection (or entire canvas) to clipboard. Ctrl+V pastes from clipboard or system clipboard.</dd>
                     </dl>
                     <h4>Navigation</h4>
                     <dl class="help-list">
                         <dt>Pan</dt><dd>Two-finger drag on touch, or enable Pan Mode button for one-finger panning.</dd>
-                        <dt>Zoom</dt><dd>Pinch to zoom on touch. Scroll wheel on desktop. Touch Offset slider adjusts the cursor distance above your finger.</dd>
+                        <dt>Zoom</dt><dd>Pinch to zoom on touch. Scroll wheel on desktop. Use the zoom slider on the left edge.</dd>
                     </dl>
                     <h4>Layers</h4>
                     <dl class="help-list">
@@ -338,12 +422,45 @@
                         <dt>Merge Down</dt><dd>Combine the active layer into the one below it.</dd>
                         <dt>Reorder</dt><dd>Use the arrow buttons or drag layers in the list.</dd>
                         <dt>Opacity</dt><dd>Control how transparent a layer appears in the composite.</dd>
+                        <dt>Blend Modes</dt><dd>Set per-layer blending: Normal, Multiply, Screen, Overlay, Add, Subtract.</dd>
                     </dl>
                     <h4>Settings</h4>
                     <dl class="help-list">
-                        <dt>Mirror</dt><dd>Cycles through horizontal, vertical, and both-axis mirroring for symmetrical drawing.</dd>
+                        <dt>Mirror / Symmetry</dt><dd>Dropdown to select symmetry mode: Horizontal, Vertical, H+V (both), or rotational (3/4/6-fold). Keyboard M also cycles through modes.</dd>
                         <dt>Lock Alpha</dt><dd>Prevents drawing on fully transparent pixels, so you only paint within existing shapes.</dd>
-                        <dt>Grid</dt><dd>Toggles a per-pixel grid overlay. Click the color swatch next to it to change the grid color.</dd>
+                        <dt>Stabilize</dt><dd>Pixel-perfect mode: removes diagonal double-pixels from 1px freehand strokes for cleaner lines.</dd>
+                        <dt>Grid</dt><dd>Toggles a per-pixel grid overlay. Click the color swatch to change grid color.</dd>
+                        <dt>Grid Spacing</dt><dd>Set a custom tile-alignment grid (e.g. 8px on a 32px canvas). Shows as cyan overlay lines.</dd>
+                        <dt>9-Slice</dt><dd>Show 9-slice guide overlay (yellow dashed lines at thirds) for UI sprite slicing.</dd>
+                        <dt>Touch Offset</dt><dd>Distance (in pixels) the cursor draws above your finger on touch devices. Set to 0 to draw directly under your finger, or increase for better visibility.</dd>
+                        <dt>Left Mode</dt><dd>Mirrors all UI controls to the left side of the screen for right-hand drawing comfort.</dd>
+                    </dl>
+                    <h4>Palette</h4>
+                    <dl class="help-list">
+                        <dt>Presets</dt><dd>Load a preset palette: PICO-8, Game Boy, NES, Endesga 32, Sweetie 16, Resurrect 64.</dd>
+                        <dt>Palette Lock</dt><dd>When active, any color you pick snaps to the nearest color in your palette.</dd>
+                        <dt>Ramp</dt><dd>Generate a gradient ramp from your primary to secondary color, filling the entire palette.</dd>
+                        <dt>Indexed Mode (Idx)</dt><dd>When active, changing a palette slot (right-click/long-press) recolors all matching pixels on the canvas. Classic indexed-color workflow for palette swaps.</dd>
+                        <dt>Save / Load</dt><dd>Export palette as a .hex file or import one (.hex, .pal, .gpl).</dd>
+                        <dt>Extract Palette</dt><dd>Pulls the most-used colors from the current sprite into your palette.</dd>
+                    </dl>
+                    <h4>Sprites</h4>
+                    <dl class="help-list">
+                        <dt>Tags</dt><dd>Add tags to organize sprites (e.g. "player", "enemy", "tiles"). Filter the gallery by tag.</dd>
+                        <dt>Per-Sprite Undo</dt><dd>Each sprite maintains its own undo/redo history when you switch between them.</dd>
+                        <dt>Rename</dt><dd>Long-press a sprite thumbnail to rename it.</dd>
+                    </dl>
+                    <h4>Keyboard Shortcuts</h4>
+                    <dl class="help-list">
+                        <dt>1-9</dt><dd>Select tools (Draw, Erase, Fill, Pick, Select, Line, Circle, Lighten, Darken)</dd>
+                        <dt>W / R / E</dt><dd>Wand / Rectangle / Ellipse</dd>
+                        <dt>M / T / G</dt><dd>Cycle mirror / Toggle alpha lock / Toggle grid</dd>
+                        <dt>[ / ]</dt><dd>Decrease / increase brush size</dd>
+                        <dt>+ / - / 0</dt><dd>Zoom in / out / reset</dd>
+                        <dt>Ctrl+Z / Ctrl+Y</dt><dd>Undo / Redo</dd>
+                        <dt>Ctrl+C / Ctrl+V</dt><dd>Copy / Paste (system clipboard supported)</dd>
+                        <dt>Delete / Backspace</dt><dd>Delete selection</dd>
+                        <dt>Escape</dt><dd>Deselect or close panel</dd>
                     </dl>
                 </div>
             </div>

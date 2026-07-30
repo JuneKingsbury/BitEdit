@@ -426,20 +426,51 @@ html, body {
     font-weight: 600;
 }
 
+#palette-toolbar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+#palette-toolbar select,
+#palette-toolbar button {
+    height: 30px;
+    font-size: 11px;
+    padding: 0 8px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #2a2a4a;
+    color: #ccc;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#palette-toolbar button.active {
+    background: #0cf;
+    color: #000;
+    border-color: #0cf;
+}
+
 #custom-palette {
     display: flex;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 4px;
     margin-bottom: 10px;
+    max-height: 120px;
+    overflow-y: auto;
 }
 
 .palette-slot {
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
     border: 2px solid #555;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: border-color 0.3s, box-shadow 0.3s;
+    flex-shrink: 0;
 }
 
 .palette-slot.palette-highlight {
@@ -1212,4 +1243,49 @@ html, body {
     .left-mode .bottom-sheet.open {
         transform: translateX(0);
     }
+}
+
+/* Sprite Tags */
+#sprite-tags-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+#sprite-tag-filter {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.tag-filter-btn {
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid #444;
+    border-radius: 12px;
+    background: #2a2a4a;
+    color: #ccc;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.tag-filter-btn.active {
+    background: #0cf;
+    color: #000;
+    border-color: #0cf;
+}
+
+/* Selection mode buttons */
+.sel-mode {
+    font-size: 11px !important;
+    font-weight: bold;
+    min-width: 28px !important;
+    padding: 0 4px;
+}
+
+.sel-mode.active {
+    background: #0cf;
+    color: #000;
 }

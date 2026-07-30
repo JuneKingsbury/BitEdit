@@ -15,7 +15,7 @@ class SpriteEditor {
         this.ctx = this.canvas.getContext('2d');
         this.canvasWidth = 16;
         this.canvasHeight = 16;
-        this.layers = [{ name: 'Layer 1', pixels: new Uint8ClampedArray(16 * 16 * 4), opacity: 1, visible: true }];
+        this.layers = [{ name: 'Layer 1', pixels: new Uint8ClampedArray(16 * 16 * 4), opacity: 1, visible: true, blendMode: 'normal' }];
         this.activeLayerIndex = 0;
         Object.defineProperty(this, 'pixels', {
             get() { return this.layers[this.activeLayerIndex].pixels; },
@@ -35,6 +35,11 @@ class SpriteEditor {
         this.transparencyLock = false;
         this.showGrid = true;
         this.gridColor = 'rgba(255,255,255,0.1)';
+        this.gridSpacing = 0;
+        this.show9Slice = false;
+        this.stabilize = false;
+        this._lastStabilizePoint = null;
+        this._shiftHeld = false;
         this.hoveredPixel = null;
         this.selection = null;
         this._selPixels = null;
@@ -43,6 +48,16 @@ class SpriteEditor {
         this._selMoveStart = null;
         this._selOrigPos = null;
         this._selStart = null;
+        this._selRotating = false;
+        this._selRotAngle = 0;
+        this._selRotStart = null;
+        this._selRotCenter = null;
+        this._selOrigPixels = null;
+        this._selMode = 'move';
+        this._selStretching = false;
+        this._selStretchStart = null;
+        this._selOrigW = 0;
+        this._selOrigH = 0;
         this._shapeStart = null;
         this._shapePreview = [];
         this._strokeSnapshot = null;
@@ -79,6 +94,7 @@ class SpriteEditor {
 
     beginStroke() {
         this._strokeSnapshot = this._snapshotLayers();
+        this._lastStabilizePoint = null;
     }
 
     endStroke() {
@@ -103,7 +119,21 @@ class SpriteEditor {
         }
 
         if (this.tool === 'select') {
-            if (this.selection && this._posInSelection({ x, y })) {
+            if (this.selection && this._selPixels && this._selMode === 'rotate') {
+                this._selRotating = true;
+                this._selRotAngle = 0;
+                const s = this.selection;
+                this._selRotCenter = { x: s.x + s.w / 2, y: s.y + s.h / 2 };
+                this._selRotStart = { x, y };
+                this._selOrigPixels = new Uint8ClampedArray(this._selPixels);
+            } else if (this.selection && this._selPixels && this._selMode === 'stretch') {
+                this._selStretching = true;
+                this._selStretchStart = { x, y };
+                this._selOrigW = this.selection.w;
+                this._selOrigH = this.selection.h;
+                this._selOrigPos = { x: this.selection.x, y: this.selection.y };
+                this._selOrigPixels = new Uint8ClampedArray(this._selPixels);
+            } else if (this.selection && this._posInSelection({ x, y })) {
                 this._selMoving = true;
                 this._selMoveStart = { x, y };
                 this._selOrigPos = { x: this.selection.x, y: this.selection.y };
@@ -116,7 +146,7 @@ class SpriteEditor {
             return;
         }
 
-        if (this.tool === 'line' || this.tool === 'circle' || this.tool === 'gradient') {
+        if (this.tool === 'line' || this.tool === 'circle' || this.tool === 'gradient' || this.tool === 'rect' || this.tool === 'ellipse') {
             this._shapeStart = { x, y };
             this._shapePreview = [];
             return;
@@ -132,7 +162,19 @@ class SpriteEditor {
         if (this.tool === 'wand') return;
 
         if (this.tool === 'select') {
-            if (this._selMoving) {
+            if (this._selRotating) {
+                const cx = this._selRotCenter.x, cy = this._selRotCenter.y;
+                const startAngle = Math.atan2(this._selRotStart.y - cy, this._selRotStart.x - cx);
+                const curAngle = Math.atan2(y - cy, x - cx);
+                this._selRotAngle = curAngle - startAngle;
+                this._rotateSelectionPreview(this._selRotAngle);
+            } else if (this._selStretching) {
+                const dx = x - this._selStretchStart.x;
+                const dy = y - this._selStretchStart.y;
+                const newW = Math.max(1, this._selOrigW + dx);
+                const newH = Math.max(1, this._selOrigH + dy);
+                this._stretchSelectionPreview(newW, newH);
+            } else if (this._selMoving) {
                 const dx = x - this._selMoveStart.x;
                 const dy = y - this._selMoveStart.y;
                 this.selection.x = this._selOrigPos.x + dx;
@@ -147,13 +189,17 @@ class SpriteEditor {
             return;
         }
 
-        if (this._shapeStart && (this.tool === 'line' || this.tool === 'circle' || this.tool === 'gradient')) {
+        if (this._shapeStart && (this.tool === 'line' || this.tool === 'circle' || this.tool === 'gradient' || this.tool === 'rect' || this.tool === 'ellipse')) {
             if (this.tool === 'line') {
                 this._shapePreview = this._computeLinePixels(this._shapeStart.x, this._shapeStart.y, x, y);
             } else if (this.tool === 'circle') {
                 this._shapePreview = this._computeCirclePixels(this._shapeStart.x, this._shapeStart.y, x, y);
             } else if (this.tool === 'gradient') {
                 this._shapePreview = this._computeGradientPixels(this._shapeStart.x, this._shapeStart.y, x, y);
+            } else if (this.tool === 'rect') {
+                this._shapePreview = this._computeRectPixels(this._shapeStart.x, this._shapeStart.y, x, y, this._shiftHeld);
+            } else if (this.tool === 'ellipse') {
+                this._shapePreview = this._computeEllipsePixels(this._shapeStart.x, this._shapeStart.y, x, y, this._shiftHeld);
             }
             return;
         }
@@ -165,6 +211,14 @@ class SpriteEditor {
         if (this.tool === 'wand') return;
 
         if (this.tool === 'select') {
+            if (this._selRotating) {
+                this._selRotating = false;
+                this._selOrigPixels = null;
+            }
+            if (this._selStretching) {
+                this._selStretching = false;
+                this._selOrigPixels = null;
+            }
             this._selMoving = false;
             this._selStart = null;
             this._updateSelectionUI();
@@ -283,7 +337,7 @@ class SpriteEditor {
             btn.classList.toggle('active', btn.dataset.tool === tool);
             btn.setAttribute('aria-pressed', btn.dataset.tool === tool ? 'true' : 'false');
         });
-        const toolNames = { draw: 'Draw', erase: 'Erase', fill: 'Fill', erasefill: 'Erase Fill', dither: 'Dither', pick: 'Pick', select: 'Select', wand: 'Wand', line: 'Line', circle: 'Circle', gradient: 'Gradient', lighten: 'Lighten', darken: 'Darken', recolor: 'Recolor' };
+        const toolNames = { draw: 'Draw', erase: 'Erase', fill: 'Fill', erasefill: 'Erase Fill', dither: 'Dither', pick: 'Pick', select: 'Select', wand: 'Wand', line: 'Line', circle: 'Circle', rect: 'Rect', ellipse: 'Ellipse', gradient: 'Gradient', lighten: 'Lighten', darken: 'Darken', recolor: 'Recolor' };
         document.getElementById('tool-info').textContent = toolNames[tool] || tool;
         this._updateSelectionUI();
     }
@@ -295,13 +349,22 @@ class SpriteEditor {
     }
 
     cycleMirror() {
-        const modes = [null, 'h', 'v', 'both'];
+        const modes = [null, 'h', 'v', 'both', 'rot3', 'rot4', 'rot6'];
         const idx = modes.indexOf(this.mirrorMode);
         this.mirrorMode = modes[(idx + 1) % modes.length];
-        const btn = document.getElementById('btn-mirror');
-        const labels = { null: 'Off', h: 'H', v: 'V', both: 'HV' };
-        btn.textContent = labels[this.mirrorMode] || 'Off';
-        btn.classList.toggle('active', this.mirrorMode !== null);
+        this._syncMirrorUI();
+        this._render();
+    }
+
+    setMirrorMode(mode) {
+        this.mirrorMode = mode === 'off' ? null : mode;
+        this._syncMirrorUI();
+        this._render();
+    }
+
+    _syncMirrorUI() {
+        const sel = document.getElementById('mirror-select');
+        if (sel) sel.value = this.mirrorMode || 'off';
     }
 
     toggleTransparencyLock() {
@@ -363,31 +426,90 @@ class SpriteEditor {
     }
 
     copySelection() {
-        if (!this.selection) return;
-        const s = this.selection;
-        const data = new Uint8ClampedArray(s.w * s.h * 4);
-        const src = this._selPixels || this.pixels;
-        for (let dy = 0; dy < s.h; dy++) {
-            for (let dx = 0; dx < s.w; dx++) {
-                let srcI;
-                if (this._selPixels) {
-                    srcI = (dy * s.w + dx) * 4;
-                } else {
-                    const sx = s.x + dx, sy = s.y + dy;
-                    if (sx < 0 || sx >= this.canvasWidth || sy < 0 || sy >= this.canvasHeight) continue;
-                    srcI = (sy * this.canvasWidth + sx) * 4;
+        let w, h, data;
+        if (this.selection) {
+            const s = this.selection;
+            w = s.w; h = s.h;
+            data = new Uint8ClampedArray(w * h * 4);
+            const src = this._selPixels || this.pixels;
+            for (let dy = 0; dy < h; dy++) {
+                for (let dx = 0; dx < w; dx++) {
+                    let srcI;
+                    if (this._selPixels) {
+                        srcI = (dy * w + dx) * 4;
+                    } else {
+                        const sx = s.x + dx, sy = s.y + dy;
+                        if (sx < 0 || sx >= this.canvasWidth || sy < 0 || sy >= this.canvasHeight) continue;
+                        srcI = (sy * this.canvasWidth + sx) * 4;
+                    }
+                    const dstI = (dy * w + dx) * 4;
+                    data[dstI] = src[srcI];
+                    data[dstI + 1] = src[srcI + 1];
+                    data[dstI + 2] = src[srcI + 2];
+                    data[dstI + 3] = src[srcI + 3];
                 }
-                const dstI = (dy * s.w + dx) * 4;
-                data[dstI] = src[srcI];
-                data[dstI + 1] = src[srcI + 1];
-                data[dstI + 2] = src[srcI + 2];
-                data[dstI + 3] = src[srcI + 3];
             }
+        } else {
+            w = this.canvasWidth; h = this.canvasHeight;
+            data = new Uint8ClampedArray(this.pixels);
         }
-        this._regionClipboard = { w: s.w, h: s.h, pixels: data };
+        this._regionClipboard = { w, h, pixels: data };
+        this._copyToSystemClipboard(data, w, h);
     }
 
-    pasteSelection() {
+    _copyToSystemClipboard(data, w, h) {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.putImageData(new ImageData(new Uint8ClampedArray(data), w, h), 0, 0);
+            canvas.toBlob(blob => {
+                if (blob && navigator.clipboard && navigator.clipboard.write) {
+                    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {});
+                }
+            });
+        } catch {}
+    }
+
+    async pasteFromSystemClipboard() {
+        try {
+            if (!navigator.clipboard || !navigator.clipboard.read) return false;
+            const items = await navigator.clipboard.read();
+            for (const item of items) {
+                if (item.types.includes('image/png')) {
+                    const blob = await item.getType('image/png');
+                    const img = new Image();
+                    const url = URL.createObjectURL(blob);
+                    return new Promise(resolve => {
+                        img.onload = () => {
+                            URL.revokeObjectURL(url);
+                            const w = Math.min(img.width, this.canvasWidth);
+                            const h = Math.min(img.height, this.canvasHeight);
+                            const tc = document.createElement('canvas');
+                            tc.width = w; tc.height = h;
+                            const tCtx = tc.getContext('2d');
+                            tCtx.imageSmoothingEnabled = false;
+                            tCtx.drawImage(img, 0, 0, w, h);
+                            const imgData = tCtx.getImageData(0, 0, w, h);
+                            this._commitSelection();
+                            this._strokeSnapshot = this._snapshotLayers();
+                            this.selection = { x: 0, y: 0, w, h };
+                            this._selPixels = new Uint8ClampedArray(imgData.data);
+                            this.setTool('select');
+                            resolve(true);
+                        };
+                        img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+                        img.src = url;
+                    });
+                }
+            }
+        } catch {}
+        return false;
+    }
+
+    async pasteSelection() {
+        const fromSystem = await this.pasteFromSystemClipboard();
+        if (fromSystem) return;
         if (!this._regionClipboard) return;
         this._commitSelection();
         const clip = this._regionClipboard;
@@ -516,8 +638,6 @@ class SpriteEditor {
 
     loadSprite(sprite) {
         if (!sprite) return;
-        this._undoStack.length = 0;
-        this._redoStack.length = 0;
         this._strokeSnapshot = null;
 
         const w = sprite.w || sprite.size || 16;
@@ -530,11 +650,12 @@ class SpriteEditor {
                 name: l.name,
                 pixels: new Uint8ClampedArray(w * h * 4),
                 opacity: l.opacity !== undefined ? l.opacity : 1,
-                visible: l.visible !== undefined ? l.visible : true
+                visible: l.visible !== undefined ? l.visible : true,
+                blendMode: l.blendMode || 'normal'
             }));
             this.activeLayerIndex = Math.min(sprite.activeLayer || 0, this.layers.length - 1);
         } else {
-            this.layers = [{ name: 'Layer 1', pixels: new Uint8ClampedArray(w * h * 4), opacity: 1, visible: true }];
+            this.layers = [{ name: 'Layer 1', pixels: new Uint8ClampedArray(w * h * 4), opacity: 1, visible: true, blendMode: 'normal' }];
             this.activeLayerIndex = 0;
         }
 
@@ -638,7 +759,7 @@ class SpriteEditor {
             const b = parseInt(hex.slice(5, 7), 16);
             this.gridColor = `rgba(${r},${g},${b},0.25)`;
         });
-        document.getElementById('btn-mirror').addEventListener('click', () => this.cycleMirror());
+        document.getElementById('mirror-select').addEventListener('change', (e) => this.setMirrorMode(e.target.value));
         document.getElementById('btn-tlock').addEventListener('click', () => this.toggleTransparencyLock());
 
         document.getElementById('btn-flip-h').addEventListener('click', () => this._flipHorizontal());
@@ -663,6 +784,43 @@ class SpriteEditor {
 
         document.getElementById('btn-sel-fill').addEventListener('click', () => this.fillSelection());
         document.getElementById('btn-sel-delete').addEventListener('click', () => this.deleteSelection());
+
+        document.querySelectorAll('.sel-mode').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const modes = { 'btn-sel-move': 'move', 'btn-sel-rotate': 'rotate', 'btn-sel-stretch': 'stretch' };
+                this._selMode = modes[btn.id] || 'move';
+                document.querySelectorAll('.sel-mode').forEach(b => b.classList.toggle('active', b === btn));
+            });
+        });
+
+        document.getElementById('btn-sel-all-color').addEventListener('click', () => this._selectAllOfColor());
+        document.getElementById('btn-sel-invert').addEventListener('click', () => this._invertSelection());
+        document.getElementById('btn-sel-grow').addEventListener('click', () => this._growSelection());
+        document.getElementById('btn-sel-shrink').addEventListener('click', () => this._shrinkSelection());
+
+        document.getElementById('grid-spacing').addEventListener('change', (e) => {
+            this.gridSpacing = Math.max(0, parseInt(e.target.value) || 0);
+        });
+        document.getElementById('btn-9slice').addEventListener('click', () => {
+            this.show9Slice = !this.show9Slice;
+            const btn = document.getElementById('btn-9slice');
+            btn.classList.toggle('active', this.show9Slice);
+            btn.setAttribute('aria-pressed', this.show9Slice);
+        });
+        document.getElementById('btn-stabilize').addEventListener('click', () => {
+            this.stabilize = !this.stabilize;
+            const btn = document.getElementById('btn-stabilize');
+            btn.textContent = this.stabilize ? 'On' : 'Off';
+            btn.classList.toggle('active', this.stabilize);
+            btn.setAttribute('aria-pressed', this.stabilize);
+        });
+        document.getElementById('blend-mode-select').addEventListener('change', (e) => {
+            this.layers[this.activeLayerIndex].blendMode = e.target.value;
+            this.autoSave();
+        });
+
+        window.addEventListener('keydown', (e) => { if (e.key === 'Shift') this._shiftHeld = true; });
+        window.addEventListener('keyup', (e) => { if (e.key === 'Shift') this._shiftHeld = false; });
 
         document.getElementById('touch-offset').addEventListener('input', (e) => {
             const val = parseInt(e.target.value);
@@ -854,6 +1012,10 @@ class SpriteEditor {
         const hasSelection = (this.tool === 'select' || this.tool === 'wand') && this.selection !== null;
         document.getElementById('btn-sel-fill').hidden = !hasSelection;
         document.getElementById('btn-sel-delete').hidden = !hasSelection;
+        const hasLiftedSel = hasSelection && this._selPixels != null;
+        document.getElementById('btn-sel-move').hidden = !hasLiftedSel;
+        document.getElementById('btn-sel-rotate').hidden = !hasLiftedSel;
+        document.getElementById('btn-sel-stretch').hidden = !hasLiftedSel;
     }
 
     _getBackdrop() {
@@ -1003,6 +1165,7 @@ class SpriteEditor {
     _setActiveLayer(idx) {
         if (idx < 0 || idx >= this.layers.length) return;
         this.activeLayerIndex = idx;
+        document.getElementById('blend-mode-select').value = this.layers[idx].blendMode || 'normal';
         this._renderLayersList();
     }
 
@@ -1011,7 +1174,7 @@ class SpriteEditor {
         const w = this.canvasWidth, h = this.canvasHeight;
         const name = 'Layer ' + (this.layers.length + 1);
         this.layers.splice(this.activeLayerIndex + 1, 0, {
-            name, pixels: new Uint8ClampedArray(w * h * 4), opacity: 1, visible: true
+            name, pixels: new Uint8ClampedArray(w * h * 4), opacity: 1, visible: true, blendMode: 'normal'
         });
         this.activeLayerIndex = this.activeLayerIndex + 1;
         this._renderLayersList();
@@ -1025,7 +1188,8 @@ class SpriteEditor {
             name: src.name + ' copy',
             pixels: new Uint8ClampedArray(src.pixels),
             opacity: src.opacity,
-            visible: src.visible
+            visible: src.visible,
+            blendMode: src.blendMode || 'normal'
         });
         this.activeLayerIndex = this.activeLayerIndex + 1;
         this._renderLayersList();
@@ -1154,6 +1318,17 @@ class SpriteEditor {
         if (this.mirrorMode === 'h' || this.mirrorMode === 'both') points.push([w - 1 - cx, cy]);
         if (this.mirrorMode === 'v' || this.mirrorMode === 'both') points.push([cx, h - 1 - cy]);
         if (this.mirrorMode === 'both') points.push([w - 1 - cx, h - 1 - cy]);
+        if (this.mirrorMode === 'rot3' || this.mirrorMode === 'rot4' || this.mirrorMode === 'rot6') {
+            const centerX = (w - 1) / 2, centerY = (h - 1) / 2;
+            const dx = cx - centerX, dy = cy - centerY;
+            const n = this.mirrorMode === 'rot3' ? 3 : this.mirrorMode === 'rot4' ? 4 : 6;
+            for (let i = 1; i < n; i++) {
+                const angle = (2 * Math.PI * i) / n;
+                const rx = Math.round(centerX + dx * Math.cos(angle) - dy * Math.sin(angle));
+                const ry = Math.round(centerY + dx * Math.sin(angle) + dy * Math.cos(angle));
+                if (rx >= 0 && rx < w && ry >= 0 && ry < h) points.push([rx, ry]);
+            }
+        }
         return points;
     }
 
@@ -1370,6 +1545,17 @@ class SpriteEditor {
     }
 
     _applyToolContinuous(x, y) {
+        if (this.stabilize && this.brushSize === 1 && (this.tool === 'draw' || this.tool === 'erase')) {
+            if (this._lastStabilizePoint) {
+                const lp = this._lastStabilizePoint;
+                const dx = Math.abs(x - lp.x), dy = Math.abs(y - lp.y);
+                if (dx === 1 && dy === 1) {
+                    this._lastStabilizePoint = { x, y };
+                    return;
+                }
+            }
+            this._lastStabilizePoint = { x, y };
+        }
         if (this.tool === 'draw') this._drawBrush(x, y);
         else if (this.tool === 'erase') this._eraseBrush(x, y);
         else if (this.tool === 'lighten') this._lightenBrush(x, y);
@@ -1447,6 +1633,83 @@ class SpriteEditor {
             }
         }
         return pixels;
+    }
+
+    _computeRectPixels(x0, y0, x1, y1, filled) {
+        const points = [];
+        const minX = Math.min(x0, x1), maxX = Math.max(x0, x1);
+        const minY = Math.min(y0, y1), maxY = Math.max(y0, y1);
+        if (filled) {
+            for (let y = minY; y <= maxY; y++) {
+                for (let x = minX; x <= maxX; x++) {
+                    points.push({ x, y });
+                }
+            }
+        } else {
+            for (let x = minX; x <= maxX; x++) {
+                points.push({ x, y: minY });
+                points.push({ x, y: maxY });
+            }
+            for (let y = minY + 1; y < maxY; y++) {
+                points.push({ x: minX, y });
+                points.push({ x: maxX, y });
+            }
+        }
+        return points;
+    }
+
+    _computeEllipsePixels(cx, cy, ex, ey, filled) {
+        const points = [];
+        const rx = Math.abs(ex - cx), ry = Math.abs(ey - cy);
+        if (rx === 0 && ry === 0) return [{ x: cx, y: cy }];
+        const centerX = cx, centerY = cy;
+        if (filled) {
+            for (let y = -ry; y <= ry; y++) {
+                for (let x = -rx; x <= rx; x++) {
+                    if ((rx > 0 ? (x * x) / (rx * rx) : 0) + (ry > 0 ? (y * y) / (ry * ry) : 0) <= 1) {
+                        points.push({ x: centerX + x, y: centerY + y });
+                    }
+                }
+            }
+        } else {
+            let x = 0, y = ry;
+            let rx2 = rx * rx, ry2 = ry * ry;
+            let px = 0, py = 2 * rx2 * y;
+            const plotEllipse = (px, py) => {
+                points.push({ x: centerX + px, y: centerY + py });
+                points.push({ x: centerX - px, y: centerY + py });
+                points.push({ x: centerX + px, y: centerY - py });
+                points.push({ x: centerX - px, y: centerY - py });
+            };
+            plotEllipse(x, y);
+            let p = Math.round(ry2 - rx2 * ry + 0.25 * rx2);
+            while (px < py) {
+                x++;
+                px += 2 * ry2;
+                if (p < 0) {
+                    p += ry2 + px;
+                } else {
+                    y--;
+                    py -= 2 * rx2;
+                    p += ry2 + px - py;
+                }
+                plotEllipse(x, y);
+            }
+            p = Math.round(ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
+            while (y > 0) {
+                y--;
+                py -= 2 * rx2;
+                if (p > 0) {
+                    p += rx2 - py;
+                } else {
+                    x++;
+                    px += 2 * ry2;
+                    p += rx2 - py + px;
+                }
+                plotEllipse(x, y);
+            }
+        }
+        return points;
     }
 
     // --- Transforms ---
@@ -1618,6 +1881,172 @@ class SpriteEditor {
         this.autoSave();
     }
 
+    _isNearSelectionCorner(x, y) {
+        if (!this.selection) return false;
+        const s = this.selection;
+        const corners = [
+            { x: s.x, y: s.y },
+            { x: s.x + s.w - 1, y: s.y },
+            { x: s.x, y: s.y + s.h - 1 },
+            { x: s.x + s.w - 1, y: s.y + s.h - 1 }
+        ];
+        const threshold = Math.max(2, Math.min(4, Math.floor(Math.min(s.w, s.h) / 4)));
+        for (const c of corners) {
+            if (Math.abs(x - c.x) <= threshold && Math.abs(y - c.y) <= threshold) return true;
+        }
+        return false;
+    }
+
+    _rotateSelectionPreview(angle) {
+        if (!this._selOrigPixels || !this.selection) return;
+        const s = this.selection;
+        const w = s.w, h = s.h;
+        const cx = w / 2, cy = h / 2;
+        const cos = Math.cos(-angle), sin = Math.sin(-angle);
+        const rotated = new Uint8ClampedArray(w * h * 4);
+        for (let dy = 0; dy < h; dy++) {
+            for (let dx = 0; dx < w; dx++) {
+                const rx = (dx - cx) * cos - (dy - cy) * sin + cx;
+                const ry = (dx - cx) * sin + (dy - cy) * cos + cy;
+                const sx = Math.round(rx), sy = Math.round(ry);
+                if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
+                    const srcI = (sy * w + sx) * 4;
+                    const dstI = (dy * w + dx) * 4;
+                    rotated[dstI] = this._selOrigPixels[srcI];
+                    rotated[dstI + 1] = this._selOrigPixels[srcI + 1];
+                    rotated[dstI + 2] = this._selOrigPixels[srcI + 2];
+                    rotated[dstI + 3] = this._selOrigPixels[srcI + 3];
+                }
+            }
+        }
+        this._selPixels = rotated;
+    }
+
+    _stretchSelectionPreview(newW, newH) {
+        if (!this._selOrigPixels || !this.selection) return;
+        const s = this.selection;
+        const srcW = this._selOrigW, srcH = this._selOrigH;
+        const stretched = new Uint8ClampedArray(newW * newH * 4);
+        for (let dy = 0; dy < newH; dy++) {
+            for (let dx = 0; dx < newW; dx++) {
+                const sx = Math.floor(dx * srcW / newW);
+                const sy = Math.floor(dy * srcH / newH);
+                const srcI = (sy * srcW + sx) * 4;
+                const dstI = (dy * newW + dx) * 4;
+                stretched[dstI] = this._selOrigPixels[srcI];
+                stretched[dstI + 1] = this._selOrigPixels[srcI + 1];
+                stretched[dstI + 2] = this._selOrigPixels[srcI + 2];
+                stretched[dstI + 3] = this._selOrigPixels[srcI + 3];
+            }
+        }
+        this._selPixels = stretched;
+        this.selection.w = newW;
+        this.selection.h = newH;
+    }
+
+    _selectAllOfColor() {
+        const c = this.colorSystem.color;
+        const w = this.canvasWidth, h = this.canvasHeight;
+        const selected = new Set();
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const px = this._getPixel(x, y);
+                if (px.r === c.r && px.g === c.g && px.b === c.b && px.a === c.a) {
+                    selected.add(y * w + x);
+                }
+            }
+        }
+        if (selected.size === 0) return;
+        this._wandSelection = selected;
+        let minX = w, minY = h, maxX = 0, maxY = 0;
+        for (const key of selected) {
+            const x = key % w, y = Math.floor(key / w);
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this.setTool('wand');
+        this._updateSelectionUI();
+    }
+
+    _invertSelection() {
+        if (!this._wandSelection) return;
+        const w = this.canvasWidth, h = this.canvasHeight;
+        const inverted = new Set();
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const key = y * w + x;
+                if (!this._wandSelection.has(key) && this.pixels[(y * w + x) * 4 + 3] > 0) {
+                    inverted.add(key);
+                }
+            }
+        }
+        if (inverted.size === 0) { this._wandSelection = null; this.selection = null; this._updateSelectionUI(); return; }
+        this._wandSelection = inverted;
+        let minX = w, minY = h, maxX = 0, maxY = 0;
+        for (const key of inverted) {
+            const x = key % w, y = Math.floor(key / w);
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this._updateSelectionUI();
+    }
+
+    _growSelection() {
+        if (!this._wandSelection) return;
+        const w = this.canvasWidth, h = this.canvasHeight;
+        const grown = new Set(this._wandSelection);
+        for (const key of this._wandSelection) {
+            const x = key % w, y = Math.floor(key / w);
+            if (x > 0) grown.add(key - 1);
+            if (x < w - 1) grown.add(key + 1);
+            if (y > 0) grown.add(key - w);
+            if (y < h - 1) grown.add(key + w);
+        }
+        this._wandSelection = grown;
+        let minX = w, minY = h, maxX = 0, maxY = 0;
+        for (const key of grown) {
+            const x = key % w, y = Math.floor(key / w);
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this._updateSelectionUI();
+    }
+
+    _shrinkSelection() {
+        if (!this._wandSelection) return;
+        const w = this.canvasWidth, h = this.canvasHeight;
+        const shrunk = new Set();
+        for (const key of this._wandSelection) {
+            const x = key % w, y = Math.floor(key / w);
+            const hasAll = (x > 0 && this._wandSelection.has(key - 1)) &&
+                           (x < w - 1 && this._wandSelection.has(key + 1)) &&
+                           (y > 0 && this._wandSelection.has(key - w)) &&
+                           (y < h - 1 && this._wandSelection.has(key + w));
+            if (hasAll) shrunk.add(key);
+        }
+        if (shrunk.size === 0) { this._wandSelection = null; this.selection = null; this._updateSelectionUI(); return; }
+        this._wandSelection = shrunk;
+        let minX = w, minY = h, maxX = 0, maxY = 0;
+        for (const key of shrunk) {
+            const x = key % w, y = Math.floor(key / w);
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this._updateSelectionUI();
+    }
+
     // --- Undo/Redo ---
 
     _pushUndo() {
@@ -1647,7 +2076,8 @@ class SpriteEditor {
                 name: l.name,
                 pixels: new Uint8ClampedArray(l.pixels),
                 opacity: l.opacity,
-                visible: l.visible
+                visible: l.visible,
+                blendMode: l.blendMode || 'normal'
             })),
             activeLayerIndex: this.activeLayerIndex
         };
@@ -1659,7 +2089,8 @@ class SpriteEditor {
                 name: l.name,
                 pixels: new Uint8ClampedArray(l.pixels),
                 opacity: l.opacity,
-                visible: l.visible
+                visible: l.visible,
+                blendMode: l.blendMode || 'normal'
             }));
             this.activeLayerIndex = snapshot.activeLayerIndex;
             this._renderLayersList();
@@ -1721,14 +2152,30 @@ class SpriteEditor {
             this._compTmp.height = h;
         }
         const tmpCtx = this._compTmp.getContext('2d');
+        const blendMap = { normal: 'source-over', multiply: 'multiply', screen: 'screen', overlay: 'overlay', add: 'lighter' };
         for (const layer of this.layers) {
             if (!layer.visible) continue;
+            const mode = layer.blendMode || 'normal';
             tmpCtx.clearRect(0, 0, w, h);
             tmpCtx.putImageData(new ImageData(new Uint8ClampedArray(layer.pixels), w, h), 0, 0);
             cCtx.globalAlpha = layer.opacity;
-            cCtx.drawImage(this._compTmp, 0, 0);
+            if (mode === 'subtract') {
+                const baseData = cCtx.getImageData(0, 0, w, h);
+                const layerData = tmpCtx.getImageData(0, 0, w, h);
+                for (let i = 0; i < baseData.data.length; i += 4) {
+                    const a = layerData.data[i + 3] / 255 * layer.opacity;
+                    baseData.data[i] = Math.max(0, baseData.data[i] - layerData.data[i] * a);
+                    baseData.data[i + 1] = Math.max(0, baseData.data[i + 1] - layerData.data[i + 1] * a);
+                    baseData.data[i + 2] = Math.max(0, baseData.data[i + 2] - layerData.data[i + 2] * a);
+                }
+                cCtx.putImageData(baseData, 0, 0);
+            } else {
+                cCtx.globalCompositeOperation = blendMap[mode] || 'source-over';
+                cCtx.drawImage(this._compTmp, 0, 0);
+            }
         }
         cCtx.globalAlpha = 1;
+        cCtx.globalCompositeOperation = 'source-over';
         return this._compCanvas;
     }
 
@@ -1775,8 +2222,10 @@ class SpriteEditor {
         }
         const pCtx = this._pixelCanvas.getContext('2d');
         pCtx.clearRect(0, 0, w, h);
+        const blendMap2 = { normal: 'source-over', multiply: 'multiply', screen: 'screen', overlay: 'overlay', add: 'lighter' };
         for (const layer of this.layers) {
             if (!layer.visible) continue;
+            const mode = layer.blendMode || 'normal';
             const layerImageData = new ImageData(new Uint8ClampedArray(layer.pixels), w, h);
             if (!this._layerTmp || this._layerTmp.width !== w || this._layerTmp.height !== h) {
                 this._layerTmp = document.createElement('canvas');
@@ -1787,9 +2236,23 @@ class SpriteEditor {
             tmpCtx.clearRect(0, 0, w, h);
             tmpCtx.putImageData(layerImageData, 0, 0);
             pCtx.globalAlpha = layer.opacity;
-            pCtx.drawImage(this._layerTmp, 0, 0);
+            if (mode === 'subtract') {
+                const baseData = pCtx.getImageData(0, 0, w, h);
+                const lData = tmpCtx.getImageData(0, 0, w, h);
+                for (let i = 0; i < baseData.data.length; i += 4) {
+                    const a = lData.data[i + 3] / 255 * layer.opacity;
+                    baseData.data[i] = Math.max(0, baseData.data[i] - lData.data[i] * a);
+                    baseData.data[i + 1] = Math.max(0, baseData.data[i + 1] - lData.data[i + 1] * a);
+                    baseData.data[i + 2] = Math.max(0, baseData.data[i + 2] - lData.data[i + 2] * a);
+                }
+                pCtx.putImageData(baseData, 0, 0);
+            } else {
+                pCtx.globalCompositeOperation = blendMap2[mode] || 'source-over';
+                pCtx.drawImage(this._layerTmp, 0, 0);
+            }
         }
         pCtx.globalAlpha = 1;
+        pCtx.globalCompositeOperation = 'source-over';
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(this._pixelCanvas, 0, 0, w, h, rox, roy, gridW, gridH);
 
@@ -1806,6 +2269,68 @@ class SpriteEditor {
                 ctx.lineTo(rox + gridW, roy + i * z + 0.5);
             }
             ctx.stroke();
+        }
+
+        if (this.gridSpacing > 1 && z >= 2) {
+            ctx.strokeStyle = 'rgba(0,200,255,0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            const gs = this.gridSpacing;
+            for (let i = gs; i < w; i += gs) {
+                ctx.moveTo(rox + i * z + 0.5, roy);
+                ctx.lineTo(rox + i * z + 0.5, roy + gridH);
+            }
+            for (let i = gs; i < h; i += gs) {
+                ctx.moveTo(rox, roy + i * z + 0.5);
+                ctx.lineTo(rox + gridW, roy + i * z + 0.5);
+            }
+            ctx.stroke();
+        }
+
+        if (this.show9Slice) {
+            ctx.strokeStyle = 'rgba(255,200,0,0.5)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            const third_w = Math.round(w / 3), third_h = Math.round(h / 3);
+            ctx.beginPath();
+            ctx.moveTo(rox + third_w * z + 0.5, roy);
+            ctx.lineTo(rox + third_w * z + 0.5, roy + gridH);
+            ctx.moveTo(rox + (w - third_w) * z + 0.5, roy);
+            ctx.lineTo(rox + (w - third_w) * z + 0.5, roy + gridH);
+            ctx.moveTo(rox, roy + third_h * z + 0.5);
+            ctx.lineTo(rox + gridW, roy + third_h * z + 0.5);
+            ctx.moveTo(rox, roy + (h - third_h) * z + 0.5);
+            ctx.lineTo(rox + gridW, roy + (h - third_h) * z + 0.5);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        if (this.mirrorMode) {
+            ctx.strokeStyle = 'rgba(255,50,50,0.7)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 3]);
+            const midX = rox + gridW / 2;
+            const midY = roy + gridH / 2;
+            ctx.beginPath();
+            if (this.mirrorMode === 'h' || this.mirrorMode === 'both') {
+                ctx.moveTo(midX, roy);
+                ctx.lineTo(midX, roy + gridH);
+            }
+            if (this.mirrorMode === 'v' || this.mirrorMode === 'both') {
+                ctx.moveTo(rox, midY);
+                ctx.lineTo(rox + gridW, midY);
+            }
+            if (this.mirrorMode === 'rot3' || this.mirrorMode === 'rot4' || this.mirrorMode === 'rot6') {
+                const n = this.mirrorMode === 'rot3' ? 3 : this.mirrorMode === 'rot4' ? 4 : 6;
+                const radius = Math.max(gridW, gridH) / 2;
+                for (let i = 0; i < n; i++) {
+                    const angle = (i * Math.PI) / n;
+                    ctx.moveTo(midX + Math.cos(angle) * radius, midY + Math.sin(angle) * radius);
+                    ctx.lineTo(midX - Math.cos(angle) * radius, midY - Math.sin(angle) * radius);
+                }
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
         }
 
         ctx.strokeStyle = 'rgba(255,255,255,0.3)';
@@ -1853,6 +2378,15 @@ class SpriteEditor {
             ctx.setLineDash([4, 4]);
             ctx.strokeRect(rox + s.x * z, roy + s.y * z, s.w * z, s.h * z);
             ctx.setLineDash([]);
+            if (this._selPixels) {
+                ctx.fillStyle = 'rgba(0,200,255,0.9)';
+                const corners = [[s.x, s.y], [s.x + s.w - 1, s.y], [s.x, s.y + s.h - 1], [s.x + s.w - 1, s.y + s.h - 1]];
+                for (const [cx, cy] of corners) {
+                    ctx.beginPath();
+                    ctx.arc(rox + cx * z + z / 2, roy + cy * z + z / 2, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
         }
 
         if (this.hoveredPixel) {
