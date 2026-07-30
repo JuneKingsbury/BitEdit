@@ -28,6 +28,7 @@
             <div id="zoom-slider-wrap">
                 <input type="range" id="zoom-slider" min="2" max="64" value="8" aria-label="Zoom level">
             </div>
+            <button id="btn-flip-view" title="Flip View (non-destructive)" aria-label="Flip canvas view horizontally" data-tooltip="Flip the view to check symmetry — does not change your art">⇔</button>
             <div id="preview-container">
                 <canvas id="preview-canvas" width="64" height="64"></canvas>
                 <button id="btn-tile-preview" class="preview-toggle" title="Toggle tile preview" aria-label="Toggle 3x3 tile preview" aria-pressed="false">T</button>
@@ -242,6 +243,11 @@
                         <label for="ld-strength" data-tooltip="How much each stroke of Lighten/Darken shifts brightness (1-80)">L/D Power</label>
                         <input type="range" id="ld-strength" min="1" max="80" value="20" aria-label="Lighten/Darken strength">
                         <span id="ld-strength-val">20</span>
+                    </div>
+                    <div class="settings-row">
+                        <label for="fill-tolerance" data-tooltip="Color distance threshold for Fill and Wand. 0 = exact match only. Higher values select similar colors.">Tolerance</label>
+                        <input type="range" id="fill-tolerance" min="0" max="128" value="0" aria-label="Fill and wand tolerance">
+                        <span id="fill-tolerance-val">0</span>
                     </div>
                 </div>
                 <div class="settings-section">

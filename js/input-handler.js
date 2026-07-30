@@ -216,6 +216,7 @@ export class InputHandler {
             case 'e': case 'E': this.editor.setTool('ellipse'); break;
             case 'm': case 'M': this.editor.cycleMirror(); break;
             case 't': case 'T': this.editor.toggleTransparencyLock(); break;
+            case 'x': case 'X': this.editor.colorSystem.swap(); break;
             case 'g': case 'G': this.editor.toggleGrid(); break;
             case 'c': case 'C': if (!ctrl) this.editor.copySprite(); break;
             case 'v': case 'V': if (!ctrl) this.editor.pasteSprite(); break;
@@ -252,7 +253,11 @@ export class InputHandler {
             clientX += this.touchOffsetX;
             clientY += this.touchOffset;
         }
-        const x = Math.floor((clientX - rect.left - this.editor.panX) / this.editor.zoom);
+        let localX = clientX - rect.left;
+        if (this.editor._viewFlipped) {
+            localX = rect.width - localX;
+        }
+        const x = Math.floor((localX - this.editor.panX) / this.editor.zoom);
         const y = Math.floor((clientY - rect.top - this.editor.panY) / this.editor.zoom);
         if (x < 0 || x >= this.editor.canvasWidth || y < 0 || y >= this.editor.canvasHeight) return null;
         return { x, y };

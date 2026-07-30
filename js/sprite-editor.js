@@ -37,6 +37,7 @@ class SpriteEditor {
         this.gridColor = 'rgba(255,255,255,0.1)';
         this.gridSpacing = 0;
         this.show9Slice = false;
+        this.fillTolerance = 0;
         this.stabilize = false;
         this._lastStabilizePoint = null;
         this._shiftHeld = false;
@@ -272,7 +273,7 @@ class SpriteEditor {
     }
 
     pan(dx, dy) {
-        this.panX += dx;
+        this.panX += this._viewFlipped ? -dx : dx;
         this.panY += dy;
     }
 
@@ -763,6 +764,11 @@ class SpriteEditor {
             document.getElementById('ld-strength-val').textContent = this.ldStrength;
         });
 
+        document.getElementById('fill-tolerance').addEventListener('input', (e) => {
+            this.fillTolerance = parseInt(e.target.value);
+            document.getElementById('fill-tolerance-val').textContent = this.fillTolerance;
+        });
+
         document.getElementById('btn-grid').addEventListener('click', () => this.toggleGrid());
         document.getElementById('grid-color').addEventListener('input', (e) => {
             const hex = e.target.value;
@@ -850,6 +856,13 @@ class SpriteEditor {
             document.getElementById('btn-tile-preview').classList.toggle('active', this.tilePreview);
             document.getElementById('btn-tile-preview').setAttribute('aria-pressed', this.tilePreview);
             document.getElementById('preview-container').classList.toggle('tiling', this.tilePreview);
+        });
+
+        this._viewFlipped = false;
+        document.getElementById('btn-flip-view').addEventListener('click', () => {
+            this._viewFlipped = !this._viewFlipped;
+            this.canvas.classList.toggle('view-flipped', this._viewFlipped);
+            document.getElementById('btn-flip-view').classList.toggle('flipped', this._viewFlipped);
         });
 
         document.getElementById('btn-load-ref').addEventListener('click', () => {
@@ -1457,10 +1470,18 @@ class SpriteEditor {
         this.pixels[i + 2] = Math.max(0, Math.min(255, this.pixels[i + 2] + amount));
     }
 
+    _colorMatch(px, target) {
+        if (this.fillTolerance === 0) {
+            return px.r === target.r && px.g === target.g && px.b === target.b && px.a === target.a;
+        }
+        const dr = px.r - target.r, dg = px.g - target.g, db = px.b - target.b, da = px.a - target.a;
+        return Math.sqrt(dr * dr + dg * dg + db * db + da * da) <= this.fillTolerance;
+    }
+
     _floodFill(startX, startY) {
         const c = this.colorSystem.color;
         const target = this._getPixel(startX, startY);
-        if (target.r === c.r && target.g === c.g && target.b === c.b && target.a === c.a) return;
+        if (this._colorMatch(target, c)) return;
 
         const w = this.canvasWidth, h = this.canvasHeight;
         const stack = [[startX, startY]];
@@ -1474,7 +1495,7 @@ class SpriteEditor {
             visited.add(key);
 
             const px = this._getPixel(x, y);
-            if (px.r !== target.r || px.g !== target.g || px.b !== target.b || px.a !== target.a) continue;
+            if (!this._colorMatch(px, target)) continue;
 
             this._setPixel(x, y, c.r, c.g, c.b, c.a);
             stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
@@ -1485,7 +1506,7 @@ class SpriteEditor {
         const c1 = this.colorSystem.color;
         const c2 = this.colorSystem.secondaryColor;
         const target = this._getPixel(startX, startY);
-        if (target.r === c1.r && target.g === c1.g && target.b === c1.b && target.a === c1.a) return;
+        if (this._colorMatch(target, c1)) return;
 
         const w = this.canvasWidth, h = this.canvasHeight;
         const stack = [[startX, startY]];
@@ -1499,7 +1520,7 @@ class SpriteEditor {
             visited.add(key);
 
             const px = this._getPixel(x, y);
-            if (px.r !== target.r || px.g !== target.g || px.b !== target.b || px.a !== target.a) continue;
+            if (!this._colorMatch(px, target)) continue;
 
             const c = (x + y) % 2 === 0 ? c1 : c2;
             this._setPixel(x, y, c.r, c.g, c.b, c.a);
@@ -1523,7 +1544,7 @@ class SpriteEditor {
             visited.add(key);
 
             const px = this._getPixel(x, y);
-            if (px.r !== target.r || px.g !== target.g || px.b !== target.b || px.a !== target.a) continue;
+            if (!this._colorMatch(px, target)) continue;
 
             this._erasePixel(x, y);
             stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
@@ -1544,7 +1565,7 @@ class SpriteEditor {
             visited.add(key);
 
             const px = this._getPixel(x, y);
-            if (px.r !== target.r || px.g !== target.g || px.b !== target.b || px.a !== target.a) continue;
+            if (!this._colorMatch(px, target)) continue;
 
             stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
         }

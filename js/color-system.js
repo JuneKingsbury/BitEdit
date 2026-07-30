@@ -192,9 +192,23 @@ export class ColorSystem {
             this.syncUI();
         });
 
-        document.getElementById('color-swatch-btn').addEventListener('click', () => {
+        const swatchBtn = document.getElementById('color-swatch-btn');
+        let swatchLongPress = null;
+        swatchBtn.addEventListener('click', () => {
             this.editor.togglePanel('color-panel');
         });
+        swatchBtn.addEventListener('touchstart', () => {
+            swatchLongPress = setTimeout(() => {
+                swatchLongPress = null;
+                this.swap();
+            }, 400);
+        }, { passive: true });
+        swatchBtn.addEventListener('touchend', () => {
+            if (swatchLongPress) { clearTimeout(swatchLongPress); swatchLongPress = null; }
+        });
+        swatchBtn.addEventListener('touchmove', () => {
+            if (swatchLongPress) { clearTimeout(swatchLongPress); swatchLongPress = null; }
+        }, { passive: true });
 
         document.getElementById('custom-palette').addEventListener('click', (e) => {
             const slot = e.target.closest('.palette-slot');
