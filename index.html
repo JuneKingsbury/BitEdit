@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d0d1a">
+    <title>MarsPixels</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/sprite-editor.css">
+</head>
+<body>
+    <div id="app">
+        <header id="status-bar">
+            <span id="sprite-name">Untitled</span>
+            <span id="canvas-info">16x16</span>
+            <span id="zoom-info">8x</span>
+            <span id="tool-info">Draw</span>
+            <span id="cursor-info"></span>
+        </header>
+
+        <div id="canvas-area">
+            <canvas id="main-canvas"></canvas>
+            <div id="preview-container">
+                <canvas id="preview-canvas" width="64" height="64"></canvas>
+                <button id="btn-tile-preview" class="preview-toggle" title="Toggle tile preview" aria-label="Toggle 3x3 tile preview" aria-pressed="false">T</button>
+            </div>
+            <div id="touch-cursor" class="hidden"></div>
+        </div>
+
+        <div id="toolbar">
+            <div id="tool-row" role="toolbar" aria-label="Drawing tools">
+                <button class="tool-btn active" data-tool="draw" title="Draw (1)" aria-label="Draw tool" aria-pressed="true">
+                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="erase" title="Erase (2)" aria-label="Erase tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4 4 0 01-5.66 0L2.81 17c-.78-.79-.78-2.05 0-2.84l10.6-10.6c.79-.78 2.05-.78 2.83 0zM4.22 15.58l3.54 3.53c.78.79 2.04.79 2.83 0l3.53-3.53-4.95-4.95-4.95 4.95z"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="fill" title="Fill (3)" aria-label="Fill tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15a1.49 1.49 0 000 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="dither" title="Dither Fill" aria-label="Dither fill tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="4" height="4" fill="currentColor"/><rect x="11" y="3" width="4" height="4" fill="currentColor"/><rect x="19" y="3" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="7" y="7" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="15" y="7" width="4" height="4" fill="currentColor"/><rect x="3" y="11" width="4" height="4" fill="currentColor"/><rect x="11" y="11" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="19" y="11" width="4" height="4" fill="currentColor"/><rect x="7" y="15" width="4" height="4" fill="currentColor"/><rect x="15" y="15" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="3" y="19" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="11" y="19" width="4" height="4" fill="currentColor"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="pick" title="Pick Color (4)" aria-label="Color picker tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 00.01-1.42zM6.92 19L5 17.08l8.06-8.06 1.92 1.92L6.92 19z"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="select" title="Select (5)" aria-label="Selection tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M3 3h4v2H5v2H3V3zm8 0h2v2h-2V3zm6 0h4v2h-2v2h-2V3zM3 11h2v2H3v-2zm16 0h2v2h-2v-2zM3 17h2v2h2v2H3v-4zm16 0h2v4h-4v-2h2v-2zm-8 2h2v2h-2v-2z" fill-rule="evenodd"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="line" title="Line (6)" aria-label="Line tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M4 20L20 4" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="circle" title="Circle (7)" aria-label="Circle tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="gradient" title="Gradient" aria-label="Gradient tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><defs><linearGradient id="g"><stop offset="0%" stop-color="currentColor"/><stop offset="100%" stop-color="currentColor" stop-opacity="0.15"/></linearGradient></defs><rect x="3" y="3" width="18" height="18" rx="2" fill="url(#g)"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="lighten" title="Lighten (8)" aria-label="Lighten tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m15.07-5.07l-2.12 2.12M8.05 15.95l-2.12 2.12m12.14 0l-2.12-2.12M8.05 8.05L5.93 5.93" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="darken" title="Darken (9)" aria-label="Darken tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-4.97-4.03-9-9-9zm0 16a7 7 0 010-14v14z"/></svg>
+                </button>
+            </div>
+            <div id="action-row" role="toolbar" aria-label="Actions">
+                <button id="btn-undo" class="action-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05 1.04-6.83 2.73L3 8v8h8l-2.83-2.83C9.55 11.83 10.94 11 12.5 11c2.85 0 5.24 1.95 5.91 4.59L20.5 15A8.01 8.01 0 0012.5 8z"/></svg>
+                </button>
+                <button id="btn-redo" class="action-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.16 0-7.74 2.42-9.44 5.93l2.05.81A8.01 8.01 0 0111.5 10c2.1 0 4.02.79 5.48 2.09L14 15h8V7l-3.6 3.6z"/></svg>
+                </button>
+                <button id="btn-sel-fill" class="action-btn sel-action" title="Fill Selection" aria-label="Fill selection with current color" hidden>
+                    <svg viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5z" fill="currentColor" opacity="0.4"/><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>
+                </button>
+                <button id="btn-sel-delete" class="action-btn sel-action" title="Delete Selection" aria-label="Delete selection" hidden>
+                    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
+                <div id="color-swatch-btn" title="Colors" role="button" aria-label="Open color panel" tabindex="0">
+                    <div id="primary-swatch"></div>
+                    <div id="secondary-swatch"></div>
+                </div>
+                <button id="btn-pan" class="action-btn" title="Pan Mode" aria-label="Toggle pan mode" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>
+                </button>
+                <button id="btn-layers" class="action-btn" title="Layers" aria-label="Open layers panel">
+                    <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button id="btn-sprites" class="action-btn" title="Sprites" aria-label="Open sprites panel">
+                    <svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+                </button>
+                <button id="btn-settings" class="action-btn" title="More" aria-label="Open settings panel">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Color Panel (bottom sheet) -->
+        <div id="color-panel" class="bottom-sheet" role="dialog" aria-label="Color picker">
+            <div class="sheet-handle"></div>
+            <div class="sheet-content">
+                <div id="color-controls">
+                    <div id="color-swatches-row">
+                        <div id="color-primary-large" title="Click to pick primary color" aria-label="Primary color" role="button" tabindex="0"></div>
+                        <input type="color" id="picker-primary" style="display:none" aria-hidden="true">
+                        <button id="btn-swap-colors" title="Swap colors" aria-label="Swap primary and secondary colors">&#8644;</button>
+                        <div id="color-secondary-large" title="Click to pick secondary color" aria-label="Secondary color" role="button" tabindex="0"></div>
+                        <input type="color" id="picker-secondary" style="display:none" aria-hidden="true">
+                    </div>
+                    <div class="slider-group">
+                        <label for="hsl-h">H</label>
+                        <input type="range" id="hsl-h" min="0" max="360" value="0" aria-label="Hue">
+                        <span id="hsl-h-val">0</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="hsl-s">S</label>
+                        <input type="range" id="hsl-s" min="0" max="100" value="0" aria-label="Saturation">
+                        <span id="hsl-s-val">0</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="hsl-l">L</label>
+                        <input type="range" id="hsl-l" min="0" max="100" value="100" aria-label="Lightness">
+                        <span id="hsl-l-val">100</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="alpha-slider">A</label>
+                        <input type="range" id="alpha-slider" min="0" max="255" value="255" aria-label="Opacity">
+                        <span id="alpha-val">255</span>
+                    </div>
+                    <div id="color-hex-row">
+                        <input type="color" id="native-picker" value="#ffffff" aria-label="System color picker">
+                        <input type="text" id="hex-input" value="#ffffff" maxlength="7" spellcheck="false" aria-label="Hex color value">
+                        <button id="btn-lighter" title="Lighter" aria-label="Make color lighter">+L</button>
+                        <button id="btn-darker" title="Darker" aria-label="Make color darker">-L</button>
+                    </div>
+                    <div id="custom-palette" aria-label="Custom palette"></div>
+                    <div id="recent-colors" aria-label="Recent colors"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sprites Panel (bottom sheet) -->
+        <div id="sprites-panel" class="bottom-sheet" role="dialog" aria-label="Sprite gallery">
+            <div class="sheet-handle"></div>
+            <div class="sheet-content">
+                <div id="sprites-header">
+                    <input type="text" id="project-name" value="My Project" spellcheck="false" aria-label="Project name">
+                    <button id="btn-new-sprite" title="New Sprite" aria-label="Add new sprite">+ New</button>
+                    <button id="btn-delete-sprite" title="Delete current sprite" aria-label="Delete current sprite" class="danger-btn">Del</button>
+                </div>
+                <div id="sprite-gallery" role="list" aria-label="Sprites"></div>
+            </div>
+        </div>
+
+        <!-- Layers Panel (bottom sheet) -->
+        <div id="layers-panel" class="bottom-sheet" role="dialog" aria-label="Layers">
+            <div class="sheet-handle"></div>
+            <div class="sheet-content">
+                <div id="layers-header">
+                    <span class="layers-title">Layers</span>
+                    <button id="btn-add-layer" title="New layer" aria-label="Add new layer">+</button>
+                    <button id="btn-duplicate-layer" title="Duplicate layer" aria-label="Duplicate active layer">&#x29C9;</button>
+                    <button id="btn-merge-layer" title="Merge down" aria-label="Merge active layer down">&#x21E9;</button>
+                    <button id="btn-delete-layer" title="Delete layer" aria-label="Delete active layer" class="danger-btn">&#x2715;</button>
+                </div>
+                <div id="layer-opacity-row" class="settings-row">
+                    <label for="layer-opacity">Opacity</label>
+                    <input type="range" id="layer-opacity" min="0" max="100" value="100" aria-label="Layer opacity">
+                    <span id="layer-opacity-val">100%</span>
+                </div>
+                <div id="layers-list" role="list" aria-label="Layer stack"></div>
+            </div>
+        </div>
+
+        <!-- Settings Panel (bottom sheet) -->
+        <div id="settings-panel" class="bottom-sheet" role="dialog" aria-label="Settings">
+            <div class="sheet-handle"></div>
+            <div class="sheet-content">
+                <div class="settings-section">
+                    <h3>Canvas</h3>
+                    <div class="settings-row">
+                        <label for="canvas-size-select">Size</label>
+                        <select id="canvas-size-select" aria-label="Canvas size">
+                            <option value="8">8x8</option>
+                            <option value="16" selected>16x16</option>
+                            <option value="32">32x32</option>
+                            <option value="64">64x64</option>
+                            <option value="128">128x128</option>
+                        </select>
+                        <button id="btn-custom-size" aria-label="Set custom canvas dimensions" style="height:36px;padding:0 10px;border:none;border-radius:6px;background:#2a2a4a;color:#ccc;font-size:12px;cursor:pointer;white-space:nowrap;">Custom...</button>
+                    </div>
+                    <div class="settings-row">
+                        <label for="brush-size">Brush</label>
+                        <input type="range" id="brush-size" min="1" max="16" value="1" aria-label="Brush size">
+                        <span id="brush-size-val">1</span>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Options</h3>
+                    <div class="settings-row">
+                        <label>Grid</label>
+                        <button id="btn-grid" class="toggle-btn active" aria-label="Toggle grid" aria-pressed="true">On</button>
+                        <input type="color" id="grid-color" value="#ffffff" aria-label="Grid line color" style="width:36px;height:36px;border:none;border-radius:6px;padding:2px;cursor:pointer;background:#2a2a4a;">
+                    </div>
+                    <div class="settings-row">
+                        <label>Mirror</label>
+                        <button id="btn-mirror" class="toggle-btn" aria-label="Cycle mirror mode" aria-pressed="false">Off</button>
+                    </div>
+                    <div class="settings-row">
+                        <label>Lock Alpha</label>
+                        <button id="btn-tlock" class="toggle-btn" aria-label="Toggle transparency lock" aria-pressed="false">Off</button>
+                    </div>
+                    <div class="settings-row">
+                        <label for="touch-offset">Touch Offset</label>
+                        <input type="range" id="touch-offset" min="0" max="100" value="50" aria-label="Touch cursor offset distance">
+                        <span id="touch-offset-val">50</span>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Transform</h3>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-flip-h" aria-label="Flip horizontal">Flip H</button>
+                        <button id="btn-flip-v" aria-label="Flip vertical">Flip V</button>
+                        <button id="btn-rotate" aria-label="Rotate clockwise">Rotate</button>
+                    </div>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-outline" aria-label="Generate outline">Outline</button>
+                        <button id="btn-replace-color" aria-label="Replace secondary color with primary">Replace Color</button>
+                    </div>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-extract-palette" aria-label="Extract palette from sprite">Extract Palette</button>
+                        <button id="btn-clear" aria-label="Clear canvas">Clear</button>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Export</h3>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-save-png" aria-label="Export as flattened PNG">Export PNG</button>
+                        <button id="btn-export-zip" aria-label="Export project as ZIP with layers">Export ZIP</button>
+                    </div>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-save-png-scaled" aria-label="Export scaled PNG">Export Scaled</button>
+                        <select id="export-scale-select" aria-label="Export scale factor" style="height:36px;background:#222;border:1px solid #444;border-radius:6px;color:#fff;font-size:12px;padding:0 6px;">
+                            <option value="2">2x</option>
+                            <option value="4">4x</option>
+                            <option value="8">8x</option>
+                            <option value="16" selected>16x</option>
+                            <option value="32">32x</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Import</h3>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-import-zip" aria-label="Import ZIP project">Import ZIP</button>
+                        <button id="btn-import-image" aria-label="Import image file">Import Image</button>
+                        <button id="btn-import-sheet" aria-label="Import from spritesheet">Spritesheet</button>
+                    </div>
+                    <input type="file" id="file-import-zip" accept=".zip" style="display:none">
+                    <input type="file" id="file-import-image" accept="image/*" style="display:none">
+                    <input type="file" id="file-import-sheet" accept="image/*" style="display:none">
+                </div>
+                <div class="settings-section">
+                    <h3>Reference Image</h3>
+                    <div class="settings-row buttons-row">
+                        <button id="btn-load-ref" aria-label="Load reference image">Load Reference</button>
+                        <button id="btn-toggle-ref" class="toggle-btn" aria-label="Toggle reference visibility" aria-pressed="false">Show</button>
+                        <button id="btn-clear-ref" aria-label="Remove reference image">Clear</button>
+                    </div>
+                    <div class="settings-row">
+                        <label for="ref-opacity">Opacity</label>
+                        <input type="range" id="ref-opacity" min="5" max="80" value="30" aria-label="Reference image opacity">
+                        <span id="ref-opacity-val">30%</span>
+                    </div>
+                    <input type="file" id="file-ref-image" accept="image/*" style="display:none">
+                </div>
+                <div class="settings-section">
+                    <div class="settings-row buttons-row">
+                        <button id="btn-help" aria-label="Open help">Help</button>
+                        <button id="btn-credits" aria-label="Open credits">Credits</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Modal -->
+        <div id="help-modal" class="modal" hidden>
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Help</h3>
+                    <button id="help-modal-close" aria-label="Close help">&times;</button>
+                </div>
+                <div class="modal-body help-body">
+                    <h4>Tools</h4>
+                    <dl class="help-list">
+                        <dt>Draw</dt><dd>Place pixels with the current color. Hold and drag to paint continuously.</dd>
+                        <dt>Erase</dt><dd>Remove pixels, making them transparent.</dd>
+                        <dt>Fill</dt><dd>Flood-fill a contiguous area of the same color with the current color.</dd>
+                        <dt>Dither</dt><dd>Fill an area with a checkerboard dither pattern using the primary and secondary colors.</dd>
+                        <dt>Pick</dt><dd>Sample a color from the canvas and set it as the current color.</dd>
+                        <dt>Select</dt><dd>Draw a rectangle to select a region. Drag to move it. Use the toolbar buttons to fill or delete the selection.</dd>
+                        <dt>Line</dt><dd>Click and drag to draw a straight line between two points.</dd>
+                        <dt>Circle</dt><dd>Click and drag to draw a circle outline from center to edge.</dd>
+                        <dt>Gradient</dt><dd>Click and drag to create a linear gradient between the primary and secondary colors.</dd>
+                        <dt>Lighten</dt><dd>Increase the lightness of pixels you paint over.</dd>
+                        <dt>Darken</dt><dd>Decrease the lightness of pixels you paint over.</dd>
+                    </dl>
+                    <h4>Navigation</h4>
+                    <dl class="help-list">
+                        <dt>Pan</dt><dd>Two-finger drag on touch, or enable Pan Mode button for one-finger panning.</dd>
+                        <dt>Zoom</dt><dd>Pinch to zoom on touch. Scroll wheel on desktop. Touch Offset slider adjusts the cursor distance above your finger.</dd>
+                    </dl>
+                    <h4>Layers</h4>
+                    <dl class="help-list">
+                        <dt>Add / Duplicate</dt><dd>Create a new blank layer or copy the active one.</dd>
+                        <dt>Merge Down</dt><dd>Combine the active layer into the one below it.</dd>
+                        <dt>Reorder</dt><dd>Use the arrow buttons or drag layers in the list.</dd>
+                        <dt>Opacity</dt><dd>Control how transparent a layer appears in the composite.</dd>
+                    </dl>
+                    <h4>Settings</h4>
+                    <dl class="help-list">
+                        <dt>Mirror</dt><dd>Cycles through horizontal, vertical, and both-axis mirroring for symmetrical drawing.</dd>
+                        <dt>Lock Alpha</dt><dd>Prevents drawing on fully transparent pixels, so you only paint within existing shapes.</dd>
+                        <dt>Grid</dt><dd>Toggles a per-pixel grid overlay. Click the color swatch next to it to change the grid color.</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Credits Modal -->
+        <div id="credits-modal" class="modal" hidden>
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Credits</h3>
+                    <button id="credits-modal-close" aria-label="Close credits">&times;</button>
+                </div>
+                <div class="modal-body credits-body">
+                    <p><strong>MarsPixels</strong></p>
+                    <p>A standalone, mobile-friendly pixel art editor built as a PWA.</p>
+                    <p>Extracted and redesigned from the Arcanum game's skin editor dev tool.</p>
+                    <br>
+                    <p><strong>Built with</strong></p>
+                    <p>Vanilla JavaScript (ES Modules), Canvas 2D API, Pointer Events API, and JSZip for project export.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spritesheet Picker Modal -->
+        <div id="sheet-picker" class="modal" hidden>
+            <div class="modal-backdrop"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Pick from Spritesheet</h3>
+                    <button id="sheet-picker-close" aria-label="Close spritesheet picker">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="sheet-canvas-wrap">
+                        <canvas id="sheet-canvas"></canvas>
+                        <div id="sheet-selection"></div>
+                    </div>
+                    <div id="sheet-controls">
+                        <div class="settings-row">
+                            <label for="sheet-grid-size">Grid</label>
+                            <select id="sheet-grid-size" aria-label="Spritesheet grid size">
+                                <option value="8">8x8</option>
+                                <option value="16" selected>16x16</option>
+                                <option value="32">32x32</option>
+                                <option value="64">64x64</option>
+                            </select>
+                        </div>
+                        <div class="settings-row">
+                            <label>Snap</label>
+                            <button id="btn-sheet-snap" class="toggle-btn active" aria-label="Snap to grid">On</button>
+                        </div>
+                        <button id="btn-sheet-import" aria-label="Import selected region">Import Selected</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/jszip.min.js"></script>
+    <script type="module" src="js/sprite-editor.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
+    </script>
+</body>
+</html>
