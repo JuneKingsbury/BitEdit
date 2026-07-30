@@ -208,6 +208,7 @@ export class InputHandler {
             case '9': this.editor.setTool('darken'); break;
             case '[': this.editor.adjustBrushSize(-1); break;
             case ']': this.editor.adjustBrushSize(1); break;
+            case 'w': case 'W': this.editor.setTool('wand'); break;
             case 'm': case 'M': this.editor.cycleMirror(); break;
             case 't': case 'T': this.editor.toggleTransparencyLock(); break;
             case 'g': case 'G': this.editor.toggleGrid(); break;

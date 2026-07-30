@@ -37,6 +37,7 @@ class SpriteEditor {
         this.hoveredPixel = null;
         this.selection = null;
         this._selPixels = null;
+        this._wandSelection = null;
         this._selMoving = false;
         this._selMoveStart = null;
         this._selOrigPos = null;
@@ -93,6 +94,13 @@ class SpriteEditor {
     }
 
     toolDown(x, y, e) {
+        if (this.tool === 'wand') {
+            this._commitSelection();
+            this._wandSelection = null;
+            this._wandSelect(x, y);
+            return;
+        }
+
         if (this.tool === 'select') {
             if (this.selection && this._posInSelection({ x, y })) {
                 this._selMoving = true;
@@ -119,6 +127,8 @@ class SpriteEditor {
     toolMove(x, y, e) {
         this.hoveredPixel = { x, y };
         this._updateStatusBar();
+
+        if (this.tool === 'wand') return;
 
         if (this.tool === 'select') {
             if (this._selMoving) {
@@ -151,6 +161,8 @@ class SpriteEditor {
     }
 
     toolUp(pos) {
+        if (this.tool === 'wand') return;
+
         if (this.tool === 'select') {
             this._selMoving = false;
             this._selStart = null;
@@ -256,12 +268,16 @@ class SpriteEditor {
             this._commitSelection();
             this.selection = null;
         }
+        if (this.tool === 'wand' && tool !== 'wand') {
+            this._wandSelection = null;
+            this.selection = null;
+        }
         this.tool = tool;
         document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tool === tool);
             btn.setAttribute('aria-pressed', btn.dataset.tool === tool ? 'true' : 'false');
         });
-        const toolNames = { draw: 'Draw', erase: 'Erase', fill: 'Fill', dither: 'Dither', pick: 'Pick', select: 'Select', line: 'Line', circle: 'Circle', gradient: 'Gradient', lighten: 'Lighten', darken: 'Darken' };
+        const toolNames = { draw: 'Draw', erase: 'Erase', fill: 'Fill', erasefill: 'Erase Fill', dither: 'Dither', pick: 'Pick', select: 'Select', wand: 'Wand', line: 'Line', circle: 'Circle', gradient: 'Gradient', lighten: 'Lighten', darken: 'Darken' };
         document.getElementById('tool-info').textContent = toolNames[tool] || tool;
         this._updateSelectionUI();
     }
@@ -377,6 +393,20 @@ class SpriteEditor {
 
     deleteSelection() {
         if (!this.selection) return;
+        if (this._wandSelection) {
+            this._strokeSnapshot = this._snapshotLayers();
+            const w = this.canvasWidth;
+            for (const key of this._wandSelection) {
+                const x = key % w, y = Math.floor(key / w);
+                this._erasePixel(x, y);
+            }
+            this._wandSelection = null;
+            this.selection = null;
+            this._pushUndo();
+            this.autoSave();
+            this._updateSelectionUI();
+            return;
+        }
         if (this._selPixels) {
             this._selPixels = null;
             this._pushUndo();
@@ -405,6 +435,20 @@ class SpriteEditor {
         const s = this.selection;
         const c = this.colorSystem.color;
         this._strokeSnapshot = this._snapshotLayers();
+        if (this._wandSelection) {
+            const w = this.canvasWidth;
+            for (const key of this._wandSelection) {
+                const x = key % w, y = Math.floor(key / w);
+                this._setPixel(x, y, c.r, c.g, c.b, c.a);
+            }
+            this._wandSelection = null;
+            this.selection = null;
+            this._pushUndo();
+            this.autoSave();
+            this.colorSystem.addRecentColor();
+            this._updateSelectionUI();
+            return;
+        }
         if (this._selPixels) {
             for (let dy = 0; dy < s.h; dy++) {
                 for (let dx = 0; dx < s.w; dx++) {
@@ -431,6 +475,10 @@ class SpriteEditor {
     handleEscape() {
         if (this._openPanel) {
             this.closePanel();
+        } else if (this._wandSelection) {
+            this._wandSelection = null;
+            this.selection = null;
+            this._updateSelectionUI();
         } else if (this.selection) {
             this._commitSelection();
             this.selection = null;
@@ -707,7 +755,7 @@ class SpriteEditor {
     }
 
     _updateSelectionUI() {
-        const hasSelection = this.tool === 'select' && this.selection !== null;
+        const hasSelection = (this.tool === 'select' || this.tool === 'wand') && this.selection !== null;
         document.getElementById('btn-sel-fill').hidden = !hasSelection;
         document.getElementById('btn-sel-delete').hidden = !hasSelection;
     }
@@ -1132,6 +1180,63 @@ class SpriteEditor {
         }
     }
 
+    _eraseFill(startX, startY) {
+        const target = this._getPixel(startX, startY);
+        if (target.r === 0 && target.g === 0 && target.b === 0 && target.a === 0) return;
+
+        const w = this.canvasWidth, h = this.canvasHeight;
+        const stack = [[startX, startY]];
+        const visited = new Set();
+
+        while (stack.length > 0) {
+            const [x, y] = stack.pop();
+            if (x < 0 || x >= w || y < 0 || y >= h) continue;
+            const key = y * w + x;
+            if (visited.has(key)) continue;
+            visited.add(key);
+
+            const px = this._getPixel(x, y);
+            if (px.r !== target.r || px.g !== target.g || px.b !== target.b || px.a !== target.a) continue;
+
+            this._erasePixel(x, y);
+            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+        }
+    }
+
+    _wandSelect(startX, startY) {
+        const target = this._getPixel(startX, startY);
+        const w = this.canvasWidth, h = this.canvasHeight;
+        const stack = [[startX, startY]];
+        const visited = new Set();
+
+        while (stack.length > 0) {
+            const [x, y] = stack.pop();
+            if (x < 0 || x >= w || y < 0 || y >= h) continue;
+            const key = y * w + x;
+            if (visited.has(key)) continue;
+            visited.add(key);
+
+            const px = this._getPixel(x, y);
+            if (px.r !== target.r || px.g !== target.g || px.b !== target.b || px.a !== target.a) continue;
+
+            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+        }
+
+        if (visited.size === 0) return;
+
+        this._wandSelection = visited;
+        let minX = w, minY = h, maxX = 0, maxY = 0;
+        for (const key of visited) {
+            const x = key % w, y = Math.floor(key / w);
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this._updateSelectionUI();
+    }
+
     _applyTool(x, y) {
         const c = this.colorSystem.color;
         switch (this.tool) {
@@ -1145,6 +1250,9 @@ class SpriteEditor {
             case 'fill':
                 this._floodFill(x, y);
                 this.colorSystem.addRecentColor();
+                break;
+            case 'erasefill':
+                this._eraseFill(x, y);
                 break;
             case 'pick':
                 this.pickColor(x, y);
@@ -1616,7 +1724,13 @@ class SpriteEditor {
             }
         }
 
-        if (this.selection) {
+        if (this._wandSelection && this.selection) {
+            ctx.fillStyle = 'rgba(0,200,255,0.25)';
+            for (const key of this._wandSelection) {
+                const px = key % w, py = Math.floor(key / w);
+                ctx.fillRect(rox + px * z, roy + py * z, z, z);
+            }
+        } else if (this.selection) {
             const s = this.selection;
             ctx.strokeStyle = 'rgba(0,200,255,0.8)';
             ctx.lineWidth = 2;

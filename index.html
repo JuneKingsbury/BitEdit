@@ -46,6 +46,12 @@
                 <button class="tool-btn" data-tool="dither" title="Dither Fill" aria-label="Dither fill tool" aria-pressed="false">
                     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="4" height="4" fill="currentColor"/><rect x="11" y="3" width="4" height="4" fill="currentColor"/><rect x="19" y="3" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="7" y="7" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="15" y="7" width="4" height="4" fill="currentColor"/><rect x="3" y="11" width="4" height="4" fill="currentColor"/><rect x="11" y="11" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="19" y="11" width="4" height="4" fill="currentColor"/><rect x="7" y="15" width="4" height="4" fill="currentColor"/><rect x="15" y="15" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="3" y="19" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="11" y="19" width="4" height="4" fill="currentColor"/></svg>
                 </button>
+                <button class="tool-btn" data-tool="erasefill" title="Erase Fill" aria-label="Erase fill tool - flood erase to transparency" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15a1.49 1.49 0 000 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21z" opacity="0.6"/><path d="M2 20h20v2H2z" stroke="currentColor" stroke-width="1" fill="none" stroke-dasharray="3,2"/></svg>
+                </button>
+                <button class="tool-btn" data-tool="wand" title="Magic Wand (W)" aria-label="Magic wand selection tool" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M7.5 5.6L5 7l1.4-2.5L5 2l2.5 1.4L10 2 8.6 4.5 10 7 7.5 5.6zm12 9.8L22 14l-1.4 2.5L22 19l-2.5-1.4L17 19l1.4-2.5L17 14l2.5 1.4zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5L22 2z"/><path d="M14.5 11.5L9 3 3.5 11.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 20L11 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </button>
                 <button class="tool-btn" data-tool="pick" title="Pick Color (4)" aria-label="Color picker tool" aria-pressed="false">
                     <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 00.01-1.42zM6.92 19L5 17.08l8.06-8.06 1.92 1.92L6.92 19z"/></svg>
                 </button>
@@ -296,6 +302,8 @@
                         <dt>Erase</dt><dd>Remove pixels, making them transparent.</dd>
                         <dt>Fill</dt><dd>Flood-fill a contiguous area of the same color with the current color.</dd>
                         <dt>Dither</dt><dd>Fill an area with a checkerboard dither pattern using the primary and secondary colors.</dd>
+                        <dt>Erase Fill</dt><dd>Click a contiguous region of the same color to erase it all to transparency.</dd>
+                        <dt>Magic Wand</dt><dd>Select a contiguous region of identical color. Then use Delete to erase it or Fill to recolor it.</dd>
                         <dt>Pick</dt><dd>Sample a color from the canvas and set it as the current color.</dd>
                         <dt>Select</dt><dd>Draw a rectangle to select a region. Drag to move it. Use the toolbar buttons to fill or delete the selection.</dd>
                         <dt>Line</dt><dd>Click and drag to draw a straight line between two points.</dd>
@@ -338,7 +346,8 @@
                     <p><strong>BitEdit</strong></p>
                     <p>A standalone, mobile-friendly pixel art editor built as a PWA.</p>
                     <p>Extracted and redesigned from the Arcanum game's skin editor dev tool.</p>
-                    <br>
+                    <p><strong>Developed by</strong></p>
+                    <p>June "Mars" Kingsbury</p>
                     <p><strong>Built with</strong></p>
                     <p>Vanilla JavaScript (ES Modules), Canvas 2D API, Pointer Events API, and JSZip for project export.</p>
                 </div>
