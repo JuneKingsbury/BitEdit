@@ -125,14 +125,26 @@ class SpriteEditor {
                 const s = this.selection;
                 this._selRotCenter = { x: s.x + s.w / 2, y: s.y + s.h / 2 };
                 this._selRotStart = { x, y };
-                this._selOrigPixels = new Uint8ClampedArray(this._selPixels);
+                if (!this._selTrueOrigPixels) {
+                    this._selTrueOrigPixels = new Uint8ClampedArray(this._selPixels);
+                    this._selTrueOrigW = s.w;
+                    this._selTrueOrigH = s.h;
+                }
+                this._selOrigPixels = this._selTrueOrigPixels;
             } else if (this.selection && this._selPixels && this._selMode === 'stretch') {
                 this._selStretching = true;
                 this._selStretchStart = { x, y };
                 this._selOrigW = this.selection.w;
                 this._selOrigH = this.selection.h;
                 this._selOrigPos = { x: this.selection.x, y: this.selection.y };
-                this._selOrigPixels = new Uint8ClampedArray(this._selPixels);
+                if (!this._selTrueOrigPixels) {
+                    this._selTrueOrigPixels = new Uint8ClampedArray(this._selPixels);
+                    this._selTrueOrigW = this.selection.w;
+                    this._selTrueOrigH = this.selection.h;
+                }
+                this._selOrigPixels = this._selTrueOrigPixels;
+                this._selOrigW = this._selTrueOrigW;
+                this._selOrigH = this._selTrueOrigH;
             } else if (this.selection && this._posInSelection({ x, y })) {
                 this._selMoving = true;
                 this._selMoveStart = { x, y };
@@ -1021,6 +1033,10 @@ class SpriteEditor {
         document.getElementById('btn-sel-move').hidden = !hasLiftedSel;
         document.getElementById('btn-sel-rotate').hidden = !hasLiftedSel;
         document.getElementById('btn-sel-stretch').hidden = !hasLiftedSel;
+        const hasWandSel = this._wandSelection != null && this._wandSelection.size > 0;
+        document.getElementById('btn-sel-invert').hidden = !hasWandSel;
+        document.getElementById('btn-sel-grow').hidden = !hasWandSel;
+        document.getElementById('btn-sel-shrink').hidden = !hasWandSel;
     }
 
     _getBackdrop() {
@@ -1154,6 +1170,41 @@ class SpriteEditor {
                 const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
                 const toIdx = i;
                 if (fromIdx !== toIdx) this._reorderLayer(fromIdx, toIdx);
+            });
+
+            let touchStartY = 0;
+            let touchDragging = false;
+            item.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+                touchDragging = false;
+            }, { passive: true });
+            item.addEventListener('touchmove', (e) => {
+                const dy = e.touches[0].clientY - touchStartY;
+                if (Math.abs(dy) > 20) {
+                    touchDragging = true;
+                    item.style.transform = `translateY(${dy}px)`;
+                    item.style.opacity = '0.7';
+                    item.style.zIndex = '100';
+                }
+            }, { passive: true });
+            item.addEventListener('touchend', (e) => {
+                item.style.transform = '';
+                item.style.opacity = '';
+                item.style.zIndex = '';
+                if (!touchDragging) return;
+                const rect = item.getBoundingClientRect();
+                const centerY = rect.top + rect.height / 2;
+                const allItems = [...list.querySelectorAll('.layer-item')];
+                let targetIdx = i;
+                for (const other of allItems) {
+                    const otherRect = other.getBoundingClientRect();
+                    const otherIdx = parseInt(other.dataset.index);
+                    if (otherIdx !== i && centerY > otherRect.top && centerY < otherRect.bottom) {
+                        targetIdx = otherIdx;
+                        break;
+                    }
+                }
+                if (targetIdx !== i) this._reorderLayer(i, targetIdx);
             });
 
             list.appendChild(item);
@@ -1882,6 +1933,9 @@ class SpriteEditor {
             }
         }
         this._selPixels = null;
+        this._selTrueOrigPixels = null;
+        this._selTrueOrigW = 0;
+        this._selTrueOrigH = 0;
         this._pushUndo();
         this.autoSave();
     }

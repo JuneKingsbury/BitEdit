@@ -101,7 +101,10 @@
                 </button>
                 <button id="btn-sel-move" class="action-btn sel-action sel-mode active" title="Move" aria-label="Move selection" data-tooltip="Drag to reposition the selected pixels" hidden>M</button>
                 <button id="btn-sel-rotate" class="action-btn sel-action sel-mode" title="Rotate" aria-label="Rotate selection" data-tooltip="Drag from a corner to rotate the selection freely" hidden>R</button>
-                <button id="btn-sel-stretch" class="action-btn sel-action sel-mode" title="Stretch" aria-label="Free transform selection" data-tooltip="Drag to scale/resize the selection (free transform)" hidden>S</button>
+                <button id="btn-sel-stretch" class="action-btn sel-action sel-mode" title="Resize" aria-label="Free transform selection" data-tooltip="Drag to scale/resize the selection (free transform)" hidden>Sz</button>
+                <button id="btn-sel-invert" class="action-btn sel-action" title="Invert" aria-label="Invert selection" data-tooltip="Invert the current wand/color selection" hidden>Inv</button>
+                <button id="btn-sel-grow" class="action-btn sel-action" title="Grow" aria-label="Grow selection" data-tooltip="Expand the selection outward by 1 pixel" hidden>+</button>
+                <button id="btn-sel-shrink" class="action-btn sel-action" title="Shrink" aria-label="Shrink selection" data-tooltip="Contract the selection inward by 1 pixel" hidden>−</button>
                 <div id="color-swatch-btn" title="Colors" role="button" aria-label="Open color panel" tabindex="0">
                     <div id="primary-swatch"></div>
                     <div id="secondary-swatch"></div>
@@ -330,11 +333,6 @@
                     <h3>Selection</h3>
                     <div class="settings-row buttons-row">
                         <button id="btn-sel-all-color" aria-label="Select all of current color" data-tooltip="Select all pixels on the canvas matching the primary color (global, not contiguous)">All of Color</button>
-                        <button id="btn-sel-invert" aria-label="Invert selection" data-tooltip="Invert the current wand/color selection">Invert</button>
-                    </div>
-                    <div class="settings-row buttons-row">
-                        <button id="btn-sel-grow" aria-label="Grow selection" data-tooltip="Expand the selection outward by 1 pixel">Grow</button>
-                        <button id="btn-sel-shrink" aria-label="Shrink selection" data-tooltip="Contract the selection inward by 1 pixel">Shrink</button>
                     </div>
                 </div>
                 <div class="settings-section">
