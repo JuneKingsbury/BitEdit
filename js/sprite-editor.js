@@ -824,8 +824,13 @@ class SpriteEditor {
 
         document.getElementById('touch-offset').addEventListener('input', (e) => {
             const val = parseInt(e.target.value);
-            this.input.touchOffset = -val;
+            this.input.touchOffsetDist = val;
+            this.input.updateTouchOffset();
             document.getElementById('touch-offset-val').textContent = val;
+        });
+        document.getElementById('touch-offset-angle').addEventListener('change', (e) => {
+            this.input.touchOffsetAngle = e.target.value;
+            this.input.updateTouchOffset();
         });
 
         document.getElementById('btn-tile-preview').addEventListener('click', () => {

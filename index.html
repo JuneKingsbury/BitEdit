@@ -285,13 +285,29 @@
                         </select>
                     </div>
                     <div class="settings-row">
-                        <label for="touch-offset" data-tooltip="Distance (px) the drawing cursor sits above your finger. 0 = draw directly under finger. Higher = further above for visibility.">Touch Offset</label>
+                        <label data-tooltip="Move UI controls to the left side of the screen for right-hand drawing">Left Mode</label>
+                        <button id="btn-left-mode" class="toggle-btn" aria-label="Toggle left-handed mode" aria-pressed="false">Off</button>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Touch</h3>
+                    <div class="settings-row">
+                        <label for="touch-offset" data-tooltip="Distance (px) from your finger to the drawing cursor. 0 = draw directly under finger.">Cursor Dist</label>
                         <input type="range" id="touch-offset" min="0" max="150" value="50" aria-label="Touch cursor offset distance">
                         <span id="touch-offset-val">50</span>
                     </div>
                     <div class="settings-row">
-                        <label data-tooltip="Move UI controls to the left side of the screen for right-hand drawing">Left Mode</label>
-                        <button id="btn-left-mode" class="toggle-btn" aria-label="Toggle left-handed mode" aria-pressed="false">Off</button>
+                        <label for="touch-offset-angle" data-tooltip="Direction the cursor offsets from your finger: Up, Down, Left, Right, or diagonal.">Cursor Dir</label>
+                        <select id="touch-offset-angle" style="height:36px;background:#222;border:1px solid #444;border-radius:6px;color:#fff;font-size:12px;padding:0 6px;" aria-label="Touch offset direction">
+                            <option value="up" selected>Up</option>
+                            <option value="down">Down</option>
+                            <option value="left">Left</option>
+                            <option value="right">Right</option>
+                            <option value="up-left">Up-Left</option>
+                            <option value="up-right">Up-Right</option>
+                            <option value="down-left">Down-Left</option>
+                            <option value="down-right">Down-Right</option>
+                        </select>
                     </div>
                 </div>
                 <div class="settings-section">
@@ -432,7 +448,7 @@
                         <dt>Grid</dt><dd>Toggles a per-pixel grid overlay. Click the color swatch to change grid color.</dd>
                         <dt>Grid Spacing</dt><dd>Set a custom tile-alignment grid (e.g. 8px on a 32px canvas). Shows as cyan overlay lines.</dd>
                         <dt>9-Slice</dt><dd>Show 9-slice guide overlay (yellow dashed lines at thirds) for UI sprite slicing.</dd>
-                        <dt>Touch Offset</dt><dd>Distance (in pixels) the cursor draws above your finger on touch devices. Set to 0 to draw directly under your finger, or increase for better visibility.</dd>
+                        <dt>Touch Offset</dt><dd>Distance and direction the cursor draws from your finger on touch. Set distance to 0 for direct input, or choose a direction (Up, Down, Left, Right, diagonals) to offset the cursor for better visibility.</dd>
                         <dt>Left Mode</dt><dd>Mirrors all UI controls to the left side of the screen for right-hand drawing comfort.</dd>
                     </dl>
                     <h4>Palette</h4>

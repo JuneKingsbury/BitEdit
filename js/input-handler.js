@@ -13,7 +13,10 @@ export class InputHandler {
         this._lastPinchCenter = null;
         this._longPressTimer = null;
         this._strokeActive = false;
+        this.touchOffsetDist = 50;
+        this.touchOffsetAngle = 'up';
         this.touchOffset = -50;
+        this.touchOffsetX = 0;
 
         this._bind();
     }
@@ -224,11 +227,32 @@ export class InputHandler {
         }
     }
 
+    updateTouchOffset() {
+        const d = this.touchOffsetDist;
+        const dir = this.touchOffsetAngle;
+        const diag = d * Math.SQRT1_2;
+        switch (dir) {
+            case 'up':         this.touchOffsetX = 0;     this.touchOffset = -d;    break;
+            case 'down':       this.touchOffsetX = 0;     this.touchOffset = d;     break;
+            case 'left':       this.touchOffsetX = -d;    this.touchOffset = 0;     break;
+            case 'right':      this.touchOffsetX = d;     this.touchOffset = 0;     break;
+            case 'up-left':    this.touchOffsetX = -diag; this.touchOffset = -diag; break;
+            case 'up-right':   this.touchOffsetX = diag;  this.touchOffset = -diag; break;
+            case 'down-left':  this.touchOffsetX = -diag; this.touchOffset = diag;  break;
+            case 'down-right': this.touchOffsetX = diag;  this.touchOffset = diag;  break;
+            default:           this.touchOffsetX = 0;     this.touchOffset = -d;    break;
+        }
+    }
+
     _eventToPixel(e, useTouchOffset) {
         const rect = this.canvas.getBoundingClientRect();
+        let clientX = e.clientX;
         let clientY = e.clientY;
-        if (useTouchOffset) clientY += this.touchOffset;
-        const x = Math.floor((e.clientX - rect.left - this.editor.panX) / this.editor.zoom);
+        if (useTouchOffset) {
+            clientX += this.touchOffsetX;
+            clientY += this.touchOffset;
+        }
+        const x = Math.floor((clientX - rect.left - this.editor.panX) / this.editor.zoom);
         const y = Math.floor((clientY - rect.top - this.editor.panY) / this.editor.zoom);
         if (x < 0 || x >= this.editor.canvasWidth || y < 0 || y >= this.editor.canvasHeight) return null;
         return { x, y };
