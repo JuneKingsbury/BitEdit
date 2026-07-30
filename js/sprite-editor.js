@@ -216,11 +216,13 @@ class SpriteEditor {
         const pixelX = (canvasX - this.panX) / this.zoom;
         const pixelY = (canvasY - this.panY) / this.zoom;
         const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(this.zoom * scale)));
-        if (newZoom === this.zoom) return;
+        if (newZoom === this.zoom) return false;
         this.zoom = newZoom;
         this.panX = canvasX - pixelX * newZoom;
         this.panY = canvasY - pixelY * newZoom;
         this._updateStatusBar();
+        this._updateZoomSlider();
+        return true;
     }
 
     zoomIn(cx, cy) {
@@ -236,6 +238,7 @@ class SpriteEditor {
         this.panX = cx - pixelX * newZoom;
         this.panY = cy - pixelY * newZoom;
         this._updateStatusBar();
+        this._updateZoomSlider();
     }
 
     zoomOut(cx, cy) {
@@ -251,6 +254,7 @@ class SpriteEditor {
         this.panX = cx - pixelX * newZoom;
         this.panY = cy - pixelY * newZoom;
         this._updateStatusBar();
+        this._updateZoomSlider();
     }
 
     resetZoom() {
@@ -261,6 +265,7 @@ class SpriteEditor {
         this.panX = (rect.width - this.canvasWidth * this.zoom) / 2;
         this.panY = (rect.height - this.canvasHeight * this.zoom) / 2;
         this._updateStatusBar();
+        this._updateZoomSlider();
     }
 
     setTool(tool) {
@@ -639,6 +644,7 @@ class SpriteEditor {
             this.colorSystem.extractPalette(this.pixels);
         });
         document.getElementById('btn-clear').addEventListener('click', () => {
+            if (!confirm('Clear the entire layer? This can be undone.')) return;
             this._pushUndoSnapshot();
             this.pixels = new Uint8ClampedArray(this.canvasWidth * this.canvasHeight * 4);
             this.autoSave();
@@ -743,10 +749,89 @@ class SpriteEditor {
             document.getElementById('credits-modal').hidden = true;
         });
 
+        document.getElementById('zoom-slider').addEventListener('input', (e) => {
+            const level = parseInt(e.target.value);
+            this._setZoomLevel(level);
+        });
+
+        const tooltipEl = document.getElementById('tooltip-popup');
+        let tooltipTimer = null;
+        const showTooltip = (el) => {
+            const text = el.dataset.tooltip;
+            if (!text) return;
+            tooltipEl.textContent = text;
+            tooltipEl.classList.add('visible');
+            const rect = el.getBoundingClientRect();
+            tooltipEl.style.left = Math.max(8, Math.min(window.innerWidth - 228, rect.left + rect.width / 2 - 110)) + 'px';
+            if (rect.top > window.innerHeight / 2) {
+                tooltipEl.style.top = (rect.top - tooltipEl.offsetHeight - 8) + 'px';
+            } else {
+                tooltipEl.style.top = (rect.bottom + 8) + 'px';
+            }
+        };
+        const hideTooltip = () => {
+            tooltipEl.classList.remove('visible');
+            clearTimeout(tooltipTimer);
+        };
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('pointerdown', (e) => {
+                if (e.pointerType !== 'touch') return;
+                tooltipTimer = setTimeout(() => showTooltip(el), 500);
+            });
+            el.addEventListener('pointerup', () => {
+                if (tooltipEl.classList.contains('visible')) {
+                    setTimeout(hideTooltip, 1500);
+                } else {
+                    clearTimeout(tooltipTimer);
+                }
+            });
+            el.addEventListener('pointercancel', hideTooltip);
+            el.addEventListener('pointerleave', hideTooltip);
+            el.addEventListener('mouseenter', (e) => {
+                if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+                showTooltip(el);
+            });
+            el.addEventListener('mouseleave', hideTooltip);
+        });
+
+        document.getElementById('btn-left-mode').addEventListener('click', () => {
+            this._toggleLeftMode();
+        });
+        if (localStorage.getItem('sprite_editor_left_mode') === 'true') {
+            this._toggleLeftMode();
+        }
+
         const backdrop = document.createElement('div');
         backdrop.className = 'sheet-backdrop';
         backdrop.addEventListener('click', () => this.closePanel());
         document.getElementById('app').appendChild(backdrop);
+    }
+
+    _setZoomLevel(level) {
+        const rect = this.canvas.getBoundingClientRect();
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const pixelX = (cx - this.panX) / this.zoom;
+        const pixelY = (cy - this.panY) / this.zoom;
+        this.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, level));
+        this.panX = cx - pixelX * this.zoom;
+        this.panY = cy - pixelY * this.zoom;
+        this._updateStatusBar();
+        this._updateZoomSlider();
+    }
+
+    _updateZoomSlider() {
+        document.getElementById('zoom-slider').value = this.zoom;
+    }
+
+    _toggleLeftMode() {
+        const app = document.getElementById('app');
+        const active = app.classList.toggle('left-mode');
+        const btn = document.getElementById('btn-left-mode');
+        btn.textContent = active ? 'On' : 'Off';
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active);
+        localStorage.setItem('sprite_editor_left_mode', active);
     }
 
     _updateUndoRedoState() {

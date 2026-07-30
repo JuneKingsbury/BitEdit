@@ -1104,3 +1104,100 @@ html, body {
         padding-bottom: 4px;
     }
 }
+
+/* Tooltips */
+#tooltip-popup {
+    position: fixed;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 300;
+    background: #111;
+    color: #eee;
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 220px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    border: 1px solid #333;
+}
+
+#tooltip-popup.visible {
+    opacity: 1;
+}
+
+/* Zoom Slider */
+#zoom-slider-wrap {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 60%;
+    max-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 8;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+#zoom-slider-wrap:hover,
+#zoom-slider-wrap:active {
+    opacity: 1;
+}
+
+#zoom-slider {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 32px;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #0cf;
+    touch-action: auto;
+}
+
+/* Left Mode */
+.left-mode #zoom-slider-wrap {
+    left: auto;
+    right: 4px;
+}
+
+.left-mode #preview-container {
+    right: auto;
+    left: 8px;
+}
+
+.left-mode #action-row {
+    flex-direction: row-reverse;
+}
+
+.left-mode #tool-row {
+    direction: rtl;
+}
+
+.left-mode #tool-row > * {
+    direction: ltr;
+}
+
+@media (min-width: 769px) {
+    .left-mode #action-row {
+        margin-left: 0;
+        margin-right: auto;
+        flex-direction: row-reverse;
+    }
+
+    .left-mode .bottom-sheet {
+        right: auto;
+        left: 0;
+        border-radius: 0 0 12px 0;
+        transform: translateX(-100%);
+    }
+
+    .left-mode .bottom-sheet.open {
+        transform: translateX(0);
+    }
+}

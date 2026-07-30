@@ -103,8 +103,8 @@ export class InputHandler {
 
             const scale = dist / this._lastPinchDist;
             if (Math.abs(scale - 1) > 0.01) {
-                this.editor.zoomAt(center.x, center.y, scale);
-                this._lastPinchDist = dist;
+                const zoomed = this.editor.zoomAt(center.x, center.y, scale);
+                if (zoomed) this._lastPinchDist = dist;
             }
 
             const dx = center.x - this._lastPinchCenter.x;

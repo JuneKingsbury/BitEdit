@@ -25,6 +25,9 @@
 
         <div id="canvas-area">
             <canvas id="main-canvas"></canvas>
+            <div id="zoom-slider-wrap">
+                <input type="range" id="zoom-slider" min="2" max="64" value="8" aria-label="Zoom level">
+            </div>
             <div id="preview-container">
                 <canvas id="preview-canvas" width="64" height="64"></canvas>
                 <button id="btn-tile-preview" class="preview-toggle" title="Toggle tile preview" aria-label="Toggle 3x3 tile preview" aria-pressed="false">T</button>
@@ -34,43 +37,43 @@
 
         <div id="toolbar">
             <div id="tool-row" role="toolbar" aria-label="Drawing tools">
-                <button class="tool-btn active" data-tool="draw" title="Draw (1)" aria-label="Draw tool" aria-pressed="true">
+                <button class="tool-btn active" data-tool="draw" title="Draw (1)" aria-label="Draw tool" aria-pressed="true" data-tooltip="Place pixels with the current color. Drag to paint continuously.">
                     <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="erase" title="Erase (2)" aria-label="Erase tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="erase" title="Erase (2)" aria-label="Erase tool" aria-pressed="false" data-tooltip="Remove pixels to transparency. Drag to erase continuously.">
                     <svg viewBox="0 0 24 24"><path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4 4 0 01-5.66 0L2.81 17c-.78-.79-.78-2.05 0-2.84l10.6-10.6c.79-.78 2.05-.78 2.83 0zM4.22 15.58l3.54 3.53c.78.79 2.04.79 2.83 0l3.53-3.53-4.95-4.95-4.95 4.95z"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="fill" title="Fill (3)" aria-label="Fill tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="fill" title="Fill (3)" aria-label="Fill tool" aria-pressed="false" data-tooltip="Flood-fill a contiguous area of the same color with the current color.">
                     <svg viewBox="0 0 24 24"><path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15a1.49 1.49 0 000 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="dither" title="Dither Fill" aria-label="Dither fill tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="dither" title="Dither Fill" aria-label="Dither fill tool" aria-pressed="false" data-tooltip="Fill an area with a checkerboard pattern using primary and secondary colors.">
                     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="4" height="4" fill="currentColor"/><rect x="11" y="3" width="4" height="4" fill="currentColor"/><rect x="19" y="3" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="7" y="7" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="15" y="7" width="4" height="4" fill="currentColor"/><rect x="3" y="11" width="4" height="4" fill="currentColor"/><rect x="11" y="11" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="19" y="11" width="4" height="4" fill="currentColor"/><rect x="7" y="15" width="4" height="4" fill="currentColor"/><rect x="15" y="15" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="3" y="19" width="4" height="4" fill="currentColor" opacity="0.4"/><rect x="11" y="19" width="4" height="4" fill="currentColor"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="erasefill" title="Erase Fill" aria-label="Erase fill tool - flood erase to transparency" aria-pressed="false">
+                <button class="tool-btn" data-tool="erasefill" title="Erase Fill" aria-label="Erase fill tool - flood erase to transparency" aria-pressed="false" data-tooltip="Click a region to erase all connected pixels of the same color to transparency.">
                     <svg viewBox="0 0 24 24"><path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15a1.49 1.49 0 000 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21z" opacity="0.6"/><path d="M2 20h20v2H2z" stroke="currentColor" stroke-width="1" fill="none" stroke-dasharray="3,2"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="wand" title="Magic Wand (W)" aria-label="Magic wand selection tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="wand" title="Magic Wand (W)" aria-label="Magic wand selection tool" aria-pressed="false" data-tooltip="Select all connected pixels of the same color. Use Delete to erase or Fill to recolor.">
                     <svg viewBox="0 0 24 24"><path d="M7.5 5.6L5 7l1.4-2.5L5 2l2.5 1.4L10 2 8.6 4.5 10 7 7.5 5.6zm12 9.8L22 14l-1.4 2.5L22 19l-2.5-1.4L17 19l1.4-2.5L17 14l2.5 1.4zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5L22 2z"/><path d="M14.5 11.5L9 3 3.5 11.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 20L11 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="pick" title="Pick Color (4)" aria-label="Color picker tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="pick" title="Pick Color (4)" aria-label="Color picker tool" aria-pressed="false" data-tooltip="Sample a color from the canvas and set it as your current color.">
                     <svg viewBox="0 0 24 24"><path d="M20.71 5.63l-2.34-2.34a1 1 0 00-1.41 0l-3.12 3.12-1.93-1.91-1.41 1.41 1.42 1.42L3 16.25V21h4.75l8.92-8.92 1.42 1.42 1.41-1.41-1.92-1.92 3.12-3.12a1 1 0 00.01-1.42zM6.92 19L5 17.08l8.06-8.06 1.92 1.92L6.92 19z"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="select" title="Select (5)" aria-label="Selection tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="select" title="Select (5)" aria-label="Selection tool" aria-pressed="false" data-tooltip="Draw a rectangle to select a region. Drag to move it. Delete or Fill the selection.">
                     <svg viewBox="0 0 24 24"><path d="M3 3h4v2H5v2H3V3zm8 0h2v2h-2V3zm6 0h4v2h-2v2h-2V3zM3 11h2v2H3v-2zm16 0h2v2h-2v-2zM3 17h2v2h2v2H3v-4zm16 0h2v4h-4v-2h2v-2zm-8 2h2v2h-2v-2z" fill-rule="evenodd"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="line" title="Line (6)" aria-label="Line tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="line" title="Line (6)" aria-label="Line tool" aria-pressed="false" data-tooltip="Click and drag to draw a straight line between two points.">
                     <svg viewBox="0 0 24 24"><path d="M4 20L20 4" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="circle" title="Circle (7)" aria-label="Circle tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="circle" title="Circle (7)" aria-label="Circle tool" aria-pressed="false" data-tooltip="Click and drag to draw a circle outline from center to edge.">
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="gradient" title="Gradient" aria-label="Gradient tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="gradient" title="Gradient" aria-label="Gradient tool" aria-pressed="false" data-tooltip="Click and drag to create a linear gradient between primary and secondary colors.">
                     <svg viewBox="0 0 24 24"><defs><linearGradient id="g"><stop offset="0%" stop-color="currentColor"/><stop offset="100%" stop-color="currentColor" stop-opacity="0.15"/></linearGradient></defs><rect x="3" y="3" width="18" height="18" rx="2" fill="url(#g)"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="lighten" title="Lighten (8)" aria-label="Lighten tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="lighten" title="Lighten (8)" aria-label="Lighten tool" aria-pressed="false" data-tooltip="Brush that increases brightness of pixels you paint over.">
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m15.07-5.07l-2.12 2.12M8.05 15.95l-2.12 2.12m12.14 0l-2.12-2.12M8.05 8.05L5.93 5.93" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                 </button>
-                <button class="tool-btn" data-tool="darken" title="Darken (9)" aria-label="Darken tool" aria-pressed="false">
+                <button class="tool-btn" data-tool="darken" title="Darken (9)" aria-label="Darken tool" aria-pressed="false" data-tooltip="Brush that decreases brightness of pixels you paint over.">
                     <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-4.97-4.03-9-9-9zm0 16a7 7 0 010-14v14z"/></svg>
                 </button>
             </div>
@@ -202,16 +205,16 @@
                 <div class="settings-section">
                     <h3>Options</h3>
                     <div class="settings-row">
-                        <label>Grid</label>
+                        <label data-tooltip="Show a per-pixel grid overlay (visible at 4x zoom and above)">Grid</label>
                         <button id="btn-grid" class="toggle-btn active" aria-label="Toggle grid" aria-pressed="true">On</button>
                         <input type="color" id="grid-color" value="#ffffff" aria-label="Grid line color" style="width:36px;height:36px;border:none;border-radius:6px;padding:2px;cursor:pointer;background:#2a2a4a;">
                     </div>
                     <div class="settings-row">
-                        <label>Mirror</label>
+                        <label data-tooltip="Draw symmetrically: H=horizontal mirror, V=vertical, HV=both axes">Mirror</label>
                         <button id="btn-mirror" class="toggle-btn" aria-label="Cycle mirror mode" aria-pressed="false">Off</button>
                     </div>
                     <div class="settings-row">
-                        <label>Lock Alpha</label>
+                        <label data-tooltip="Prevent drawing on fully transparent pixels — only paint within existing shapes">Lock Alpha</label>
                         <button id="btn-tlock" class="toggle-btn" aria-label="Toggle transparency lock" aria-pressed="false">Off</button>
                     </div>
                     <div class="settings-row">
@@ -219,21 +222,25 @@
                         <input type="range" id="touch-offset" min="0" max="100" value="50" aria-label="Touch cursor offset distance">
                         <span id="touch-offset-val">50</span>
                     </div>
+                    <div class="settings-row">
+                        <label data-tooltip="Move UI controls to the left side of the screen for right-hand drawing">Left Mode</label>
+                        <button id="btn-left-mode" class="toggle-btn" aria-label="Toggle left-handed mode" aria-pressed="false">Off</button>
+                    </div>
                 </div>
                 <div class="settings-section">
                     <h3>Transform</h3>
                     <div class="settings-row buttons-row">
-                        <button id="btn-flip-h" aria-label="Flip horizontal">Flip H</button>
-                        <button id="btn-flip-v" aria-label="Flip vertical">Flip V</button>
-                        <button id="btn-rotate" aria-label="Rotate clockwise">Rotate</button>
+                        <button id="btn-flip-h" aria-label="Flip horizontal" data-tooltip="Mirror the sprite left-to-right">Flip H</button>
+                        <button id="btn-flip-v" aria-label="Flip vertical" data-tooltip="Mirror the sprite top-to-bottom">Flip V</button>
+                        <button id="btn-rotate" aria-label="Rotate clockwise" data-tooltip="Rotate the entire sprite 90 degrees clockwise">Rotate</button>
                     </div>
                     <div class="settings-row buttons-row">
-                        <button id="btn-outline" aria-label="Generate outline">Outline</button>
-                        <button id="btn-replace-color" aria-label="Replace secondary color with primary">Replace Color</button>
+                        <button id="btn-outline" aria-label="Generate outline" data-tooltip="Add a 1px outline around all non-transparent pixels using the current color">Outline</button>
+                        <button id="btn-replace-color" aria-label="Replace secondary color with primary" data-tooltip="Replace every pixel matching the secondary color with the primary color">Replace Color</button>
                     </div>
                     <div class="settings-row buttons-row">
-                        <button id="btn-extract-palette" aria-label="Extract palette from sprite">Extract Palette</button>
-                        <button id="btn-clear" aria-label="Clear canvas">Clear</button>
+                        <button id="btn-extract-palette" aria-label="Extract palette from sprite" data-tooltip="Find the most-used colors in the sprite and add them to your custom palette">Extract Palette</button>
+                        <button id="btn-clear" aria-label="Clear canvas" data-tooltip="Erase all pixels on the current layer to transparency">Clear</button>
                     </div>
                 </div>
                 <div class="settings-section">
@@ -388,6 +395,7 @@
         </div>
     </div>
 
+    <div id="tooltip-popup"></div>
     <script src="lib/jszip.min.js"></script>
     <script type="module" src="js/sprite-editor.js"></script>
     <script>
