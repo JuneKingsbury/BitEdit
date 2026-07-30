@@ -1,6 +1,6 @@
 {
-    "name": "MarsPixels",
-    "short_name": "MarsPixels",
+    "name": "BitEdit",
+    "short_name": "BitEdit",
     "description": "Mobile-friendly pixel art editor",
     "start_url": "./index.html",
     "display": "standalone",

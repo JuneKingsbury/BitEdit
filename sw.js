@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marspixels-v1';
+const CACHE_NAME = 'BitEdit-v1';
 const ASSETS = [
     './',
     './index.html',
