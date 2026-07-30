@@ -304,6 +304,16 @@ export class ColorSystem {
         return Math.min(6, colors.length);
     }
 
+    highlightPaletteSlots(count) {
+        const slots = document.querySelectorAll('#custom-palette .palette-slot');
+        slots.forEach((slot, i) => {
+            if (i < count) {
+                slot.classList.add('palette-highlight');
+                setTimeout(() => slot.classList.remove('palette-highlight'), 2000);
+            }
+        });
+    }
+
     _renderCustomPalette() {
         const el = document.getElementById('custom-palette');
         el.innerHTML = this.customPalette.map((c, i) =>

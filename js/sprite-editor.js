@@ -30,6 +30,7 @@ class SpriteEditor {
         this.panY = 0;
         this.tool = 'draw';
         this.brushSize = 1;
+        this.ldStrength = 20;
         this.mirrorMode = null;
         this.transparencyLock = false;
         this.showGrid = true;
@@ -282,7 +283,7 @@ class SpriteEditor {
             btn.classList.toggle('active', btn.dataset.tool === tool);
             btn.setAttribute('aria-pressed', btn.dataset.tool === tool ? 'true' : 'false');
         });
-        const toolNames = { draw: 'Draw', erase: 'Erase', fill: 'Fill', erasefill: 'Erase Fill', dither: 'Dither', pick: 'Pick', select: 'Select', wand: 'Wand', line: 'Line', circle: 'Circle', gradient: 'Gradient', lighten: 'Lighten', darken: 'Darken' };
+        const toolNames = { draw: 'Draw', erase: 'Erase', fill: 'Fill', erasefill: 'Erase Fill', dither: 'Dither', pick: 'Pick', select: 'Select', wand: 'Wand', line: 'Line', circle: 'Circle', gradient: 'Gradient', lighten: 'Lighten', darken: 'Darken', recolor: 'Recolor' };
         document.getElementById('tool-info').textContent = toolNames[tool] || tool;
         this._updateSelectionUI();
     }
@@ -624,6 +625,11 @@ class SpriteEditor {
             document.getElementById('brush-size-val').textContent = this.brushSize;
         });
 
+        document.getElementById('ld-strength').addEventListener('input', (e) => {
+            this.ldStrength = parseInt(e.target.value);
+            document.getElementById('ld-strength-val').textContent = this.ldStrength;
+        });
+
         document.getElementById('btn-grid').addEventListener('click', () => this.toggleGrid());
         document.getElementById('grid-color').addEventListener('input', (e) => {
             const hex = e.target.value;
@@ -641,7 +647,12 @@ class SpriteEditor {
         document.getElementById('btn-outline').addEventListener('click', () => this._generateOutline());
         document.getElementById('btn-replace-color').addEventListener('click', () => this._replaceColor());
         document.getElementById('btn-extract-palette').addEventListener('click', () => {
-            this.colorSystem.extractPalette(this.pixels);
+            const count = this.colorSystem.extractPalette(this.pixels);
+            if (count > 0) {
+                this.closePanel();
+                this.togglePanel('color-panel');
+                this.colorSystem.highlightPaletteSlots(count);
+            }
         });
         document.getElementById('btn-clear').addEventListener('click', () => {
             if (!confirm('Clear the entire layer? This can be undone.')) return;
@@ -1185,7 +1196,7 @@ class SpriteEditor {
                 for (let dx = -r; dx < bs - r; dx++) {
                     const px = mx + dx, py = my + dy;
                     if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                        this._shiftBrightness(px, py, 20);
+                        this._shiftBrightness(px, py, this.ldStrength);
                     }
                 }
             }
@@ -1200,7 +1211,7 @@ class SpriteEditor {
                 for (let dx = -r; dx < bs - r; dx++) {
                     const px = mx + dx, py = my + dy;
                     if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                        this._shiftBrightness(px, py, -20);
+                        this._shiftBrightness(px, py, -this.ldStrength);
                     }
                 }
             }
@@ -1350,6 +1361,10 @@ class SpriteEditor {
                 break;
             case 'dither':
                 this._ditherFill(x, y);
+                break;
+            case 'recolor':
+                this._recolorAll(x, y);
+                this.colorSystem.addRecentColor();
                 break;
         }
     }
@@ -1512,6 +1527,22 @@ class SpriteEditor {
             }
         }
         this.autoSave();
+    }
+
+    _recolorAll(x, y) {
+        const target = this._getPixel(x, y);
+        const c = this.colorSystem.color;
+        if (target.r === c.r && target.g === c.g && target.b === c.b && target.a === c.a) return;
+        const total = this.canvasWidth * this.canvasHeight * 4;
+        for (let i = 0; i < total; i += 4) {
+            if (this.pixels[i] === target.r && this.pixels[i + 1] === target.g &&
+                this.pixels[i + 2] === target.b && this.pixels[i + 3] === target.a) {
+                this.pixels[i] = c.r;
+                this.pixels[i + 1] = c.g;
+                this.pixels[i + 2] = c.b;
+                this.pixels[i + 3] = c.a;
+            }
+        }
     }
 
     _generateOutline() {

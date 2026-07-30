@@ -76,6 +76,9 @@
                 <button class="tool-btn" data-tool="darken" title="Darken (9)" aria-label="Darken tool" aria-pressed="false" data-tooltip="Brush that decreases brightness of pixels you paint over.">
                     <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-4.97-4.03-9-9-9zm0 16a7 7 0 010-14v14z"/></svg>
                 </button>
+                <button class="tool-btn" data-tool="recolor" title="Replace Color" aria-label="Replace color tool" aria-pressed="false" data-tooltip="Click a pixel to replace ALL pixels of that color with your current color (global, not just contiguous).">
+                    <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9" fill="currentColor" opacity="0.6"/><path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
             </div>
             <div id="action-row" role="toolbar" aria-label="Actions">
                 <button id="btn-undo" class="action-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
@@ -200,6 +203,11 @@
                         <label for="brush-size">Brush</label>
                         <input type="range" id="brush-size" min="1" max="16" value="1" aria-label="Brush size">
                         <span id="brush-size-val">1</span>
+                    </div>
+                    <div class="settings-row">
+                        <label for="ld-strength" data-tooltip="How much each stroke of Lighten/Darken shifts brightness (1-80)">L/D Power</label>
+                        <input type="range" id="ld-strength" min="1" max="80" value="20" aria-label="Lighten/Darken strength">
+                        <span id="ld-strength-val">20</span>
                     </div>
                 </div>
                 <div class="settings-section">

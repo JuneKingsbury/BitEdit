@@ -439,6 +439,18 @@ html, body {
     border: 2px solid #555;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.palette-slot.palette-highlight {
+    border-color: #0cf;
+    box-shadow: 0 0 8px #0cf, inset 0 0 4px rgba(0, 204, 255, 0.3);
+    animation: palette-pulse 0.6s ease-in-out 2;
+}
+
+@keyframes palette-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
 }
 
 #recent-colors {
