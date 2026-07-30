@@ -5,7 +5,13 @@ export class ColorSystem {
         this.secondaryColor = { r: 0, g: 0, b: 0, a: 255 };
         this.customPalette = Array.from({ length: 6 }, () => ({ r: 128, g: 128, b: 128, a: 255 }));
         this.recentColors = [];
+        this.hue = 0;
+        this.sat = 0;
+        this.val = 100;
+        this._svDragging = false;
+        this._hueDragging = false;
         this._loadPalette();
+        this._initPicker();
         this._bindUI();
         this.syncUI();
     }
@@ -21,10 +27,75 @@ export class ColorSystem {
         localStorage.setItem('sprite_editor_palette', JSON.stringify(this.customPalette));
     }
 
+    _initPicker() {
+        this._drawHueStrip();
+        this._drawSVCanvas();
+    }
+
+    _drawHueStrip() {
+        const canvas = document.getElementById('hue-canvas');
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        for (let x = 0; x < w; x++) {
+            ctx.fillStyle = `hsl(${(x / w) * 360}, 100%, 50%)`;
+            ctx.fillRect(x, 0, 1, 1);
+        }
+    }
+
+    _drawSVCanvas() {
+        const canvas = document.getElementById('sv-canvas');
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = `hsl(${this.hue}, 100%, 50%)`;
+        ctx.fillRect(0, 0, w, h);
+        const white = ctx.createLinearGradient(0, 0, w, 0);
+        white.addColorStop(0, 'rgba(255,255,255,1)');
+        white.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = white;
+        ctx.fillRect(0, 0, w, h);
+        const black = ctx.createLinearGradient(0, 0, 0, h);
+        black.addColorStop(0, 'rgba(0,0,0,0)');
+        black.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = black;
+        ctx.fillRect(0, 0, w, h);
+    }
+
     _bindUI() {
-        document.getElementById('hsl-h').addEventListener('input', (e) => this._onHSLChange());
-        document.getElementById('hsl-s').addEventListener('input', (e) => this._onHSLChange());
-        document.getElementById('hsl-l').addEventListener('input', (e) => this._onHSLChange());
+        const svCanvas = document.getElementById('color-picker-area');
+        const hueRow = document.getElementById('hue-strip-row');
+
+        svCanvas.addEventListener('pointerdown', (e) => {
+            this._svDragging = true;
+            svCanvas.setPointerCapture(e.pointerId);
+            this._pickSV(e);
+        });
+        svCanvas.addEventListener('pointermove', (e) => {
+            if (this._svDragging) this._pickSV(e);
+        });
+        svCanvas.addEventListener('pointerup', (e) => {
+            this._svDragging = false;
+        });
+        svCanvas.addEventListener('pointercancel', () => {
+            this._svDragging = false;
+        });
+
+        hueRow.addEventListener('pointerdown', (e) => {
+            this._hueDragging = true;
+            hueRow.setPointerCapture(e.pointerId);
+            this._pickHue(e);
+        });
+        hueRow.addEventListener('pointermove', (e) => {
+            if (this._hueDragging) this._pickHue(e);
+        });
+        hueRow.addEventListener('pointerup', () => {
+            this._hueDragging = false;
+        });
+        hueRow.addEventListener('pointercancel', () => {
+            this._hueDragging = false;
+        });
+
         document.getElementById('alpha-slider').addEventListener('input', (e) => {
             this.color.a = parseInt(e.target.value);
             this.syncUI(true);
@@ -113,11 +184,27 @@ export class ColorSystem {
         });
     }
 
-    _onHSLChange() {
-        const h = parseInt(document.getElementById('hsl-h').value);
-        const s = parseInt(document.getElementById('hsl-s').value);
-        const l = parseInt(document.getElementById('hsl-l').value);
-        const rgb = this.hslToRgb(h, s, l);
+    _pickSV(e) {
+        const area = document.getElementById('color-picker-area');
+        const rect = area.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+        this.sat = x * 100;
+        this.val = (1 - y) * 100;
+        const rgb = this.hsvToRgb(this.hue, this.sat, this.val);
+        this.color.r = rgb.r;
+        this.color.g = rgb.g;
+        this.color.b = rgb.b;
+        this.syncUI(true);
+    }
+
+    _pickHue(e) {
+        const row = document.getElementById('hue-strip-row');
+        const rect = row.getBoundingClientRect();
+        const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        this.hue = x * 360;
+        this._drawSVCanvas();
+        const rgb = this.hsvToRgb(this.hue, this.sat, this.val);
         this.color.r = rgb.r;
         this.color.g = rgb.g;
         this.color.b = rgb.b;
@@ -135,7 +222,7 @@ export class ColorSystem {
         return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
     }
 
-    syncUI(skipHSL) {
+    syncUI(skipHSV) {
         const { r, g, b, a } = this.color;
         const hex = '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
 
@@ -144,15 +231,22 @@ export class ColorSystem {
         document.getElementById('alpha-slider').value = a;
         document.getElementById('alpha-val').textContent = a;
 
-        if (!skipHSL) {
-            const hsl = this.rgbToHsl(r, g, b);
-            document.getElementById('hsl-h').value = hsl.h;
-            document.getElementById('hsl-s').value = hsl.s;
-            document.getElementById('hsl-l').value = hsl.l;
-            document.getElementById('hsl-h-val').textContent = hsl.h;
-            document.getElementById('hsl-s-val').textContent = hsl.s;
-            document.getElementById('hsl-l-val').textContent = hsl.l;
+        if (!skipHSV) {
+            const hsv = this.rgbToHsv(r, g, b);
+            if (hsv.s > 0 || hsv.v > 0) this.hue = hsv.h;
+            this.sat = hsv.s;
+            this.val = hsv.v;
+            this._drawSVCanvas();
         }
+
+        const svArea = document.getElementById('color-picker-area');
+        const svCursor = document.getElementById('sv-cursor');
+        svCursor.style.left = (this.sat / 100) * svArea.clientWidth + 'px';
+        svCursor.style.top = ((100 - this.val) / 100) * svArea.clientHeight + 'px';
+
+        const hueRow = document.getElementById('hue-strip-row');
+        const hueCursor = document.getElementById('hue-cursor');
+        hueCursor.style.left = (this.hue / 360) * hueRow.clientWidth + 'px';
 
         document.getElementById('color-primary-large').style.background = `rgba(${r},${g},${b},${a / 255})`;
         document.getElementById('primary-swatch').style.background = `rgba(${r},${g},${b},${a / 255})`;
@@ -222,6 +316,40 @@ export class ColorSystem {
         el.innerHTML = this.recentColors.map(c =>
             `<div class="recent-swatch" data-color='${JSON.stringify(c)}' style="background:rgba(${c.r},${c.g},${c.b},${c.a / 255})"></div>`
         ).join('');
+    }
+
+    hsvToRgb(h, s, v) {
+        s /= 100; v /= 100;
+        const c = v * s;
+        const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        const m = v - c;
+        let r, g, b;
+        if (h < 60) { r = c; g = x; b = 0; }
+        else if (h < 120) { r = x; g = c; b = 0; }
+        else if (h < 180) { r = 0; g = c; b = x; }
+        else if (h < 240) { r = 0; g = x; b = c; }
+        else if (h < 300) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+        return {
+            r: Math.round((r + m) * 255),
+            g: Math.round((g + m) * 255),
+            b: Math.round((b + m) * 255)
+        };
+    }
+
+    rgbToHsv(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        const d = max - min;
+        let h = 0, s = max === 0 ? 0 : d / max, v = max;
+        if (d !== 0) {
+            switch (max) {
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
+                case g: h = ((b - r) / d + 2) * 60; break;
+                case b: h = ((r - g) / d + 4) * 60; break;
+            }
+        }
+        return { h, s: s * 100, v: v * 100 };
     }
 
     rgbToHsl(r, g, b) {

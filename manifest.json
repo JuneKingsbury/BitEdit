@@ -9,9 +9,19 @@
     "theme_color": "#0d0d1a",
     "icons": [
         {
-            "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' fill='%230d0d1a'/><rect x='8' y='8' width='12' height='12' fill='%234a4aff'/><rect x='24' y='8' width='12' height='12' fill='%23ff4a4a'/><rect x='40' y='8' width='12' height='12' fill='%2344ff44'/><rect x='8' y='24' width='12' height='12' fill='%23ffaa00'/><rect x='24' y='24' width='12' height='12' fill='%23ffffff'/><rect x='40' y='24' width='12' height='12' fill='%2300ccff'/><rect x='16' y='40' width='12' height='12' fill='%23ff44ff'/><rect x='32' y='40' width='12' height='12' fill='%2388ff88'/></svg>",
-            "sizes": "any",
-            "type": "image/svg+xml"
+            "src": "BitEditIcon.png",
+            "sizes": "128x128",
+            "type": "image/png"
+        },
+        {
+            "src": "icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
         }
     ]
 }

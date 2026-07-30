@@ -7,12 +7,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0d0d1a">
     <title>BitEdit</title>
+    <link rel="icon" type="image/png" href="BitEditIcon.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="css/sprite-editor.css">
 </head>
 <body>
     <div id="app">
         <header id="status-bar">
+            <img src="BitEditIcon.png" alt="BitEdit" id="app-icon">
             <span id="sprite-name">Untitled</span>
             <span id="canvas-info">16x16</span>
             <span id="zoom-info">8x</span>
@@ -109,20 +112,13 @@
                         <div id="color-secondary-large" title="Click to pick secondary color" aria-label="Secondary color" role="button" tabindex="0"></div>
                         <input type="color" id="picker-secondary" style="display:none" aria-hidden="true">
                     </div>
-                    <div class="slider-group">
-                        <label for="hsl-h">H</label>
-                        <input type="range" id="hsl-h" min="0" max="360" value="0" aria-label="Hue">
-                        <span id="hsl-h-val">0</span>
+                    <div id="color-picker-area" aria-label="Color picker">
+                        <canvas id="sv-canvas" width="256" height="256"></canvas>
+                        <div id="sv-cursor" class="picker-cursor"></div>
                     </div>
-                    <div class="slider-group">
-                        <label for="hsl-s">S</label>
-                        <input type="range" id="hsl-s" min="0" max="100" value="0" aria-label="Saturation">
-                        <span id="hsl-s-val">0</span>
-                    </div>
-                    <div class="slider-group">
-                        <label for="hsl-l">L</label>
-                        <input type="range" id="hsl-l" min="0" max="100" value="100" aria-label="Lightness">
-                        <span id="hsl-l-val">100</span>
+                    <div id="hue-strip-row">
+                        <canvas id="hue-canvas" width="256" height="1"></canvas>
+                        <div id="hue-cursor" class="picker-cursor"></div>
                     </div>
                     <div class="slider-group">
                         <label for="alpha-slider">A</label>
