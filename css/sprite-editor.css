@@ -106,6 +106,93 @@ html, body {
     display: none;
 }
 
+/* Context Bar — floats at top of canvas for contextual tools (selection, etc.) */
+#context-bar {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 8px;
+    background: rgba(26, 26, 46, 0.92);
+    border: 1px solid #3a3a5a;
+    border-radius: 10px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+#context-bar[hidden] {
+    display: none;
+}
+
+.ctx-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 6px;
+    background: #2a2a4a;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ctx-btn:active {
+    background: #3a3a6a;
+}
+
+.ctx-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
+.ctx-btn.sel-mode.active {
+    background: #0cf;
+    color: #000;
+}
+
+.ctx-btn.ctx-confirm {
+    background: #1a6b3a;
+    color: #6f6;
+}
+
+.ctx-btn.ctx-confirm:active {
+    background: #2a8b4a;
+}
+
+.ctx-btn.ctx-cancel {
+    background: #6b1a1a;
+    color: #f66;
+}
+
+.ctx-btn.ctx-cancel:active {
+    background: #8b2a2a;
+}
+
+.ctx-btn[hidden] {
+    display: none;
+}
+
+.ctx-sep {
+    width: 1px;
+    height: 24px;
+    background: #3a3a5a;
+    margin: 0 2px;
+}
+
+.ctx-sep[hidden] {
+    display: none;
+}
+
 /* Toolbar */
 #toolbar {
     flex-shrink: 0;
@@ -854,10 +941,6 @@ html, body {
     transform: none;
 }
 
-/* Selection action buttons */
-.sel-action[hidden] {
-    display: none;
-}
 
 /* Delete sprite button */
 .danger-btn {
@@ -1315,14 +1398,3 @@ html, body {
 }
 
 /* Selection mode buttons */
-.sel-mode {
-    font-size: 11px !important;
-    font-weight: bold;
-    min-width: 28px !important;
-    padding: 0 4px;
-}
-
-.sel-mode.active {
-    background: #0cf;
-    color: #000;
-}

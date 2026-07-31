@@ -34,6 +34,29 @@
                 <button id="btn-tile-preview" class="preview-toggle" title="Toggle tile preview" aria-label="Toggle 3x3 tile preview" aria-pressed="false">T</button>
             </div>
             <div id="touch-cursor" class="hidden"></div>
+            <div id="context-bar" hidden role="toolbar" aria-label="Selection actions">
+                <button id="btn-sel-fill" class="ctx-btn" title="Fill Selection" aria-label="Fill selection with current color">
+                    <svg viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5z" fill="currentColor" opacity="0.4"/><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>
+                </button>
+                <button id="btn-sel-delete" class="ctx-btn" title="Delete Selection" aria-label="Delete selection">
+                    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
+                <span class="ctx-sep"></span>
+                <button id="btn-sel-move" class="ctx-btn sel-mode active" title="Move" aria-label="Move selection" data-tooltip="Drag to reposition the selected pixels">M</button>
+                <button id="btn-sel-rotate" class="ctx-btn sel-mode" title="Rotate" aria-label="Rotate selection" data-tooltip="Drag from a corner to rotate the selection freely">R</button>
+                <button id="btn-sel-stretch" class="ctx-btn sel-mode" title="Resize" aria-label="Free transform selection" data-tooltip="Drag to scale/resize the selection (free transform)">Sz</button>
+                <span class="ctx-sep"></span>
+                <button id="btn-sel-invert" class="ctx-btn" title="Invert" aria-label="Invert selection" data-tooltip="Invert the current wand/color selection">Inv</button>
+                <button id="btn-sel-grow" class="ctx-btn" title="Grow" aria-label="Grow selection" data-tooltip="Expand the selection outward by 1 pixel">+</button>
+                <button id="btn-sel-shrink" class="ctx-btn" title="Shrink" aria-label="Shrink selection" data-tooltip="Contract the selection inward by 1 pixel">−</button>
+                <span class="ctx-sep"></span>
+                <button id="btn-sel-accept" class="ctx-btn ctx-confirm" title="Accept" aria-label="Accept selection and deselect" data-tooltip="Commit the current selection state">
+                    <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="currentColor"/></svg>
+                </button>
+                <button id="btn-sel-cancel" class="ctx-btn ctx-cancel" title="Cancel" aria-label="Cancel and revert selection" data-tooltip="Undo all changes and deselect">
+                    <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" fill="currentColor"/></svg>
+                </button>
+            </div>
         </div>
 
         <div id="toolbar">
@@ -94,18 +117,6 @@
                 <button id="btn-redo" class="action-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>
                     <svg viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.16 0-7.74 2.42-9.44 5.93l2.05.81A8.01 8.01 0 0111.5 10c2.1 0 4.02.79 5.48 2.09L14 15h8V7l-3.6 3.6z"/></svg>
                 </button>
-                <button id="btn-sel-fill" class="action-btn sel-action" title="Fill Selection" aria-label="Fill selection with current color" hidden>
-                    <svg viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm2 2v14h14V5H5z" fill="currentColor" opacity="0.4"/><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>
-                </button>
-                <button id="btn-sel-delete" class="action-btn sel-action" title="Delete Selection" aria-label="Delete selection" hidden>
-                    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                </button>
-                <button id="btn-sel-move" class="action-btn sel-action sel-mode active" title="Move" aria-label="Move selection" data-tooltip="Drag to reposition the selected pixels" hidden>M</button>
-                <button id="btn-sel-rotate" class="action-btn sel-action sel-mode" title="Rotate" aria-label="Rotate selection" data-tooltip="Drag from a corner to rotate the selection freely" hidden>R</button>
-                <button id="btn-sel-stretch" class="action-btn sel-action sel-mode" title="Resize" aria-label="Free transform selection" data-tooltip="Drag to scale/resize the selection (free transform)" hidden>Sz</button>
-                <button id="btn-sel-invert" class="action-btn sel-action" title="Invert" aria-label="Invert selection" data-tooltip="Invert the current wand/color selection" hidden>Inv</button>
-                <button id="btn-sel-grow" class="action-btn sel-action" title="Grow" aria-label="Grow selection" data-tooltip="Expand the selection outward by 1 pixel" hidden>+</button>
-                <button id="btn-sel-shrink" class="action-btn sel-action" title="Shrink" aria-label="Shrink selection" data-tooltip="Contract the selection inward by 1 pixel" hidden>−</button>
                 <div id="color-swatch-btn" title="Colors" role="button" aria-label="Open color panel" tabindex="0">
                     <div id="primary-swatch"></div>
                     <div id="secondary-swatch"></div>

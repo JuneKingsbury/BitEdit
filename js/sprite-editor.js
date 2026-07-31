@@ -8,6 +8,7 @@ const CHECKERBOARD_DARK = '#2a2a2a';
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 64;
 const MAX_UNDO = 50;
+const BLEND_MODE_MAP = { normal: 'source-over', multiply: 'multiply', screen: 'screen', overlay: 'overlay', add: 'lighter' };
 
 class SpriteEditor {
     constructor() {
@@ -62,6 +63,7 @@ class SpriteEditor {
         this._shapeStart = null;
         this._shapePreview = [];
         this._strokeSnapshot = null;
+        this._selectionSnapshot = null;
         this._undoStack = [];
         this._redoStack = [];
         this._clipboard = null;
@@ -81,6 +83,7 @@ class SpriteEditor {
         this.sheetPicker = new SheetPicker(this);
 
         this._bindUI();
+        this._loadSettings();
         this._resize();
         window.addEventListener('resize', () => this._resize());
 
@@ -135,8 +138,6 @@ class SpriteEditor {
             } else if (this.selection && this._selPixels && this._selMode === 'stretch') {
                 this._selStretching = true;
                 this._selStretchStart = { x, y };
-                this._selOrigW = this.selection.w;
-                this._selOrigH = this.selection.h;
                 this._selOrigPos = { x: this.selection.x, y: this.selection.y };
                 if (!this._selTrueOrigPixels) {
                     this._selTrueOrigPixels = new Uint8ClampedArray(this._selPixels);
@@ -146,6 +147,11 @@ class SpriteEditor {
                 this._selOrigPixels = this._selTrueOrigPixels;
                 this._selOrigW = this._selTrueOrigW;
                 this._selOrigH = this._selTrueOrigH;
+                // Determine which handle was grabbed based on proximity to edges/corners
+                const s = this.selection;
+                const midX = s.x + s.w / 2, midY = s.y + s.h / 2;
+                this._stretchAnchorX = x < midX ? 'right' : 'left';
+                this._stretchAnchorY = y < midY ? 'bottom' : 'top';
             } else if (this.selection && this._posInSelection({ x, y })) {
                 this._selMoving = true;
                 this._selMoveStart = { x, y };
@@ -184,8 +190,22 @@ class SpriteEditor {
             } else if (this._selStretching) {
                 const dx = x - this._selStretchStart.x;
                 const dy = y - this._selStretchStart.y;
-                const newW = Math.max(1, this._selOrigW + dx);
-                const newH = Math.max(1, this._selOrigH + dy);
+                let newW = this._selOrigW, newH = this._selOrigH;
+                let newX = this._selOrigPos.x, newY = this._selOrigPos.y;
+                if (this._stretchAnchorX === 'left') {
+                    newW = Math.max(1, this._selOrigW + dx);
+                } else {
+                    newW = Math.max(1, this._selOrigW - dx);
+                    newX = this._selOrigPos.x + (this._selOrigW - newW);
+                }
+                if (this._stretchAnchorY === 'top') {
+                    newH = Math.max(1, this._selOrigH + dy);
+                } else {
+                    newH = Math.max(1, this._selOrigH - dy);
+                    newY = this._selOrigPos.y + (this._selOrigH - newH);
+                }
+                this.selection.x = newX;
+                this.selection.y = newY;
                 this._stretchSelectionPreview(newW, newH);
             } else if (this._selMoving) {
                 const dx = x - this._selMoveStart.x;
@@ -231,6 +251,10 @@ class SpriteEditor {
             if (this._selStretching) {
                 this._selStretching = false;
                 this._selOrigPixels = null;
+                // Commit the current stretched shape as the new baseline for future resizes
+                this._selTrueOrigPixels = new Uint8ClampedArray(this._selPixels);
+                this._selTrueOrigW = this.selection.w;
+                this._selTrueOrigH = this.selection.h;
             }
             this._selMoving = false;
             this._selStart = null;
@@ -366,12 +390,14 @@ class SpriteEditor {
         const idx = modes.indexOf(this.mirrorMode);
         this.mirrorMode = modes[(idx + 1) % modes.length];
         this._syncMirrorUI();
+        this._saveSettings();
         this._render();
     }
 
     setMirrorMode(mode) {
         this.mirrorMode = mode === 'off' ? null : mode;
         this._syncMirrorUI();
+        this._saveSettings();
         this._render();
     }
 
@@ -385,6 +411,7 @@ class SpriteEditor {
         const btn = document.getElementById('btn-tlock');
         btn.textContent = this.transparencyLock ? 'On' : 'Off';
         btn.classList.toggle('active', this.transparencyLock);
+        this._saveSettings();
     }
 
     toggleGrid() {
@@ -392,6 +419,95 @@ class SpriteEditor {
         const btn = document.getElementById('btn-grid');
         btn.textContent = this.showGrid ? 'On' : 'Off';
         btn.classList.toggle('active', this.showGrid);
+        this._saveSettings();
+    }
+
+    _saveSettings() {
+        const settings = {
+            brushSize: this.brushSize,
+            ldStrength: this.ldStrength,
+            fillTolerance: this.fillTolerance,
+            showGrid: this.showGrid,
+            gridColor: this.gridColor,
+            gridSpacing: this.gridSpacing,
+            show9Slice: this.show9Slice,
+            stabilize: this.stabilize,
+            mirrorMode: this.mirrorMode,
+            transparencyLock: this.transparencyLock,
+            touchOffsetDist: this.input.touchOffsetDist,
+            touchOffsetAngle: this.input.touchOffsetAngle,
+        };
+        localStorage.setItem('bitedit_settings', JSON.stringify(settings));
+    }
+
+    _loadSettings() {
+        const raw = localStorage.getItem('bitedit_settings');
+        if (!raw) return;
+        let s;
+        try { s = JSON.parse(raw); } catch { return; }
+
+        if (s.brushSize != null) {
+            this.brushSize = s.brushSize;
+            document.getElementById('brush-size').value = s.brushSize;
+            document.getElementById('brush-size-val').textContent = s.brushSize;
+        }
+        if (s.ldStrength != null) {
+            this.ldStrength = s.ldStrength;
+            document.getElementById('ld-strength').value = s.ldStrength;
+            document.getElementById('ld-strength-val').textContent = s.ldStrength;
+        }
+        if (s.fillTolerance != null) {
+            this.fillTolerance = s.fillTolerance;
+            document.getElementById('fill-tolerance').value = s.fillTolerance;
+            document.getElementById('fill-tolerance-val').textContent = s.fillTolerance;
+        }
+        if (s.showGrid != null) {
+            this.showGrid = s.showGrid;
+            const gridBtn = document.getElementById('btn-grid');
+            gridBtn.textContent = s.showGrid ? 'On' : 'Off';
+            gridBtn.classList.toggle('active', s.showGrid);
+        }
+        if (s.gridColor != null) {
+            this.gridColor = s.gridColor;
+        }
+        if (s.gridSpacing != null) {
+            this.gridSpacing = s.gridSpacing;
+            document.getElementById('grid-spacing').value = s.gridSpacing;
+        }
+        if (s.show9Slice != null) {
+            this.show9Slice = s.show9Slice;
+            const sliceBtn = document.getElementById('btn-9slice');
+            sliceBtn.classList.toggle('active', s.show9Slice);
+            sliceBtn.setAttribute('aria-pressed', s.show9Slice);
+        }
+        if (s.stabilize != null) {
+            this.stabilize = s.stabilize;
+            const stabBtn = document.getElementById('btn-stabilize');
+            stabBtn.textContent = s.stabilize ? 'On' : 'Off';
+            stabBtn.classList.toggle('active', s.stabilize);
+            stabBtn.setAttribute('aria-pressed', s.stabilize);
+        }
+        if (s.mirrorMode !== undefined) {
+            this.mirrorMode = s.mirrorMode;
+            this._syncMirrorUI();
+        }
+        if (s.transparencyLock != null) {
+            this.transparencyLock = s.transparencyLock;
+            const tlockBtn = document.getElementById('btn-tlock');
+            tlockBtn.textContent = s.transparencyLock ? 'On' : 'Off';
+            tlockBtn.classList.toggle('active', s.transparencyLock);
+        }
+        if (s.touchOffsetDist != null) {
+            this.input.touchOffsetDist = s.touchOffsetDist;
+            this.input.updateTouchOffset();
+            document.getElementById('touch-offset').value = s.touchOffsetDist;
+            document.getElementById('touch-offset-val').textContent = s.touchOffsetDist;
+        }
+        if (s.touchOffsetAngle != null) {
+            this.input.touchOffsetAngle = s.touchOffsetAngle;
+            this.input.updateTouchOffset();
+            document.getElementById('touch-offset-angle').value = s.touchOffsetAngle;
+        }
     }
 
     undo() {
@@ -527,6 +643,7 @@ class SpriteEditor {
         this._commitSelection();
         const clip = this._regionClipboard;
         this._strokeSnapshot = this._snapshotLayers();
+        this._selectionSnapshot = this._snapshotLayers();
         this.selection = { x: 0, y: 0, w: clip.w, h: clip.h };
         this._selPixels = new Uint8ClampedArray(clip.pixels);
         this.setTool('select');
@@ -727,6 +844,19 @@ class SpriteEditor {
     // --- Private methods ---
 
     _bindUI() {
+        this._bindToolbar();
+        this._bindSettingsControls();
+        this._bindSelectionControls();
+        this._bindTouchControls();
+        this._bindViewControls();
+        this._bindReferenceImage();
+        this._bindLayerControls();
+        this._bindModals();
+        this._bindTooltips();
+        this._bindLeftMode();
+    }
+
+    _bindToolbar() {
         document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
             btn.addEventListener('click', () => this.setTool(btn.dataset.tool));
         });
@@ -739,6 +869,17 @@ class SpriteEditor {
 
         document.getElementById('btn-settings').addEventListener('click', () => this.togglePanel('settings-panel'));
 
+        // Convert vertical mouse wheel to horizontal scroll on the tool row
+        const toolRow = document.getElementById('tool-row');
+        toolRow.addEventListener('wheel', (e) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                toolRow.scrollLeft += e.deltaY;
+            }
+        }, { passive: false });
+    }
+
+    _bindSettingsControls() {
         document.getElementById('canvas-size-select').addEventListener('change', (e) => {
             const v = parseInt(e.target.value);
             this._setCanvasDimensions(v, v);
@@ -757,16 +898,19 @@ class SpriteEditor {
         document.getElementById('brush-size').addEventListener('input', (e) => {
             this.brushSize = parseInt(e.target.value);
             document.getElementById('brush-size-val').textContent = this.brushSize;
+            this._saveSettings();
         });
 
         document.getElementById('ld-strength').addEventListener('input', (e) => {
             this.ldStrength = parseInt(e.target.value);
             document.getElementById('ld-strength-val').textContent = this.ldStrength;
+            this._saveSettings();
         });
 
         document.getElementById('fill-tolerance').addEventListener('input', (e) => {
             this.fillTolerance = parseInt(e.target.value);
             document.getElementById('fill-tolerance-val').textContent = this.fillTolerance;
+            this._saveSettings();
         });
 
         document.getElementById('btn-grid').addEventListener('click', () => this.toggleGrid());
@@ -776,6 +920,7 @@ class SpriteEditor {
             const g = parseInt(hex.slice(3, 5), 16);
             const b = parseInt(hex.slice(5, 7), 16);
             this.gridColor = `rgba(${r},${g},${b},0.25)`;
+            this._saveSettings();
         });
         document.getElementById('mirror-select').addEventListener('change', (e) => this.setMirrorMode(e.target.value));
         document.getElementById('btn-tlock').addEventListener('click', () => this.toggleTransparencyLock());
@@ -799,7 +944,9 @@ class SpriteEditor {
             this.pixels = new Uint8ClampedArray(this.canvasWidth * this.canvasHeight * 4);
             this.autoSave();
         });
+    }
 
+    _bindSelectionControls() {
         document.getElementById('btn-sel-fill').addEventListener('click', () => this.fillSelection());
         document.getElementById('btn-sel-delete').addEventListener('click', () => this.deleteSelection());
 
@@ -808,6 +955,9 @@ class SpriteEditor {
                 const modes = { 'btn-sel-move': 'move', 'btn-sel-rotate': 'rotate', 'btn-sel-stretch': 'stretch' };
                 this._selMode = modes[btn.id] || 'move';
                 document.querySelectorAll('.sel-mode').forEach(b => b.classList.toggle('active', b === btn));
+                if ((this._selMode === 'rotate' || this._selMode === 'stretch') && this.selection && !this._selPixels) {
+                    this._liftSelection();
+                }
             });
         });
 
@@ -816,14 +966,43 @@ class SpriteEditor {
         document.getElementById('btn-sel-grow').addEventListener('click', () => this._growSelection());
         document.getElementById('btn-sel-shrink').addEventListener('click', () => this._shrinkSelection());
 
+        document.getElementById('btn-sel-accept').addEventListener('click', () => {
+            this._commitSelection();
+            this.selection = null;
+            this._wandSelection = null;
+            this._selPixels = null;
+            this._selectionSnapshot = null;
+            this._strokeSnapshot = null;
+            this._updateSelectionUI();
+        });
+
+        document.getElementById('btn-sel-cancel').addEventListener('click', () => {
+            if (this._selectionSnapshot) {
+                this._restoreSnapshot(this._selectionSnapshot);
+                this._selectionSnapshot = null;
+            }
+            this.selection = null;
+            this._wandSelection = null;
+            this._selPixels = null;
+            this._selTrueOrigPixels = null;
+            this._selTrueOrigW = 0;
+            this._selTrueOrigH = 0;
+            this._strokeSnapshot = null;
+            this._updateSelectionUI();
+        });
+    }
+
+    _bindTouchControls() {
         document.getElementById('grid-spacing').addEventListener('change', (e) => {
             this.gridSpacing = Math.max(0, parseInt(e.target.value) || 0);
+            this._saveSettings();
         });
         document.getElementById('btn-9slice').addEventListener('click', () => {
             this.show9Slice = !this.show9Slice;
             const btn = document.getElementById('btn-9slice');
             btn.classList.toggle('active', this.show9Slice);
             btn.setAttribute('aria-pressed', this.show9Slice);
+            this._saveSettings();
         });
         document.getElementById('btn-stabilize').addEventListener('click', () => {
             this.stabilize = !this.stabilize;
@@ -831,6 +1010,7 @@ class SpriteEditor {
             btn.textContent = this.stabilize ? 'On' : 'Off';
             btn.classList.toggle('active', this.stabilize);
             btn.setAttribute('aria-pressed', this.stabilize);
+            this._saveSettings();
         });
         document.getElementById('blend-mode-select').addEventListener('change', (e) => {
             this.layers[this.activeLayerIndex].blendMode = e.target.value;
@@ -845,12 +1025,17 @@ class SpriteEditor {
             this.input.touchOffsetDist = val;
             this.input.updateTouchOffset();
             document.getElementById('touch-offset-val').textContent = val;
+            this._saveSettings();
         });
         document.getElementById('touch-offset-angle').addEventListener('change', (e) => {
             this.input.touchOffsetAngle = e.target.value;
             this.input.updateTouchOffset();
+            this._saveSettings();
         });
 
+    }
+
+    _bindViewControls() {
         document.getElementById('btn-tile-preview').addEventListener('click', () => {
             this.tilePreview = !this.tilePreview;
             document.getElementById('btn-tile-preview').classList.toggle('active', this.tilePreview);
@@ -864,7 +1049,9 @@ class SpriteEditor {
             this.canvas.classList.toggle('view-flipped', this._viewFlipped);
             document.getElementById('btn-flip-view').classList.toggle('flipped', this._viewFlipped);
         });
+    }
 
+    _bindReferenceImage() {
         document.getElementById('btn-load-ref').addEventListener('click', () => {
             document.getElementById('file-ref-image').click();
         });
@@ -914,7 +1101,9 @@ class SpriteEditor {
             if (e.target.files[0]) this.sheetPicker.open(e.target.files[0]);
             e.target.value = '';
         });
+    }
 
+    _bindLayerControls() {
         document.getElementById('btn-layers').addEventListener('click', () => {
             this._renderLayersList();
             this.togglePanel('layers-panel');
@@ -927,7 +1116,9 @@ class SpriteEditor {
             this._setLayerOpacity(parseInt(e.target.value));
             document.getElementById('layer-opacity-val').textContent = e.target.value + '%';
         });
+    }
 
+    _bindModals() {
         document.getElementById('btn-help').addEventListener('click', () => {
             document.getElementById('help-modal').hidden = false;
         });
@@ -952,7 +1143,9 @@ class SpriteEditor {
             const level = parseInt(e.target.value);
             this._setZoomLevel(level);
         });
+    }
 
+    _bindTooltips() {
         const tooltipEl = document.getElementById('tooltip-popup');
         let tooltipTimer = null;
         const showTooltip = (el) => {
@@ -993,6 +1186,9 @@ class SpriteEditor {
             el.addEventListener('mouseleave', hideTooltip);
         });
 
+    }
+
+    _bindLeftMode() {
         document.getElementById('btn-left-mode').addEventListener('click', () => {
             this._toggleLeftMode();
         });
@@ -1040,16 +1236,27 @@ class SpriteEditor {
 
     _updateSelectionUI() {
         const hasSelection = (this.tool === 'select' || this.tool === 'wand') && this.selection !== null;
+        const hasLiftedSel = hasSelection && this._selPixels != null;
+        const hasWandSel = this._wandSelection != null && this._wandSelection.size > 0;
+
         document.getElementById('btn-sel-fill').hidden = !hasSelection;
         document.getElementById('btn-sel-delete').hidden = !hasSelection;
-        const hasLiftedSel = hasSelection && this._selPixels != null;
-        document.getElementById('btn-sel-move').hidden = !hasLiftedSel;
-        document.getElementById('btn-sel-rotate').hidden = !hasLiftedSel;
-        document.getElementById('btn-sel-stretch').hidden = !hasLiftedSel;
-        const hasWandSel = this._wandSelection != null && this._wandSelection.size > 0;
+        document.getElementById('btn-sel-move').hidden = !hasSelection;
+        document.getElementById('btn-sel-rotate').hidden = !hasSelection;
+        document.getElementById('btn-sel-stretch').hidden = !hasSelection;
         document.getElementById('btn-sel-invert').hidden = !hasWandSel;
         document.getElementById('btn-sel-grow').hidden = !hasWandSel;
         document.getElementById('btn-sel-shrink').hidden = !hasWandSel;
+        document.getElementById('btn-sel-accept').hidden = !hasSelection;
+        document.getElementById('btn-sel-cancel').hidden = !hasSelection;
+
+        const seps = document.querySelectorAll('#context-bar .ctx-sep');
+        if (seps[0]) seps[0].hidden = !hasSelection;
+        if (seps[1]) seps[1].hidden = !hasWandSel;
+        if (seps[2]) seps[2].hidden = !hasSelection;
+
+        // Show the whole context bar if any buttons are visible
+        document.getElementById('context-bar').hidden = !hasSelection && !hasWandSel;
     }
 
     _getBackdrop() {
@@ -1201,18 +1408,24 @@ class SpriteEditor {
                 }
             }, { passive: true });
             item.addEventListener('touchend', (e) => {
+                if (!touchDragging) {
+                    item.style.transform = '';
+                    item.style.opacity = '';
+                    item.style.zIndex = '';
+                    return;
+                }
+                const rect = item.getBoundingClientRect();
+                const centerY = rect.top + rect.height / 2;
                 item.style.transform = '';
                 item.style.opacity = '';
                 item.style.zIndex = '';
-                if (!touchDragging) return;
-                const rect = item.getBoundingClientRect();
-                const centerY = rect.top + rect.height / 2;
                 const allItems = [...list.querySelectorAll('.layer-item')];
                 let targetIdx = i;
                 for (const other of allItems) {
-                    const otherRect = other.getBoundingClientRect();
                     const otherIdx = parseInt(other.dataset.index);
-                    if (otherIdx !== i && centerY > otherRect.top && centerY < otherRect.bottom) {
+                    if (otherIdx === i) continue;
+                    const otherRect = other.getBoundingClientRect();
+                    if (centerY > otherRect.top && centerY < otherRect.bottom) {
                         targetIdx = otherIdx;
                         break;
                     }
@@ -1401,8 +1614,7 @@ class SpriteEditor {
         return points;
     }
 
-    _drawBrush(cx, cy) {
-        const c = this.colorSystem.color;
+    _applyBrush(cx, cy, pixelAction) {
         const bs = this.brushSize;
         const r = Math.floor(bs / 2);
         for (const [mx, my] of this._getMirrorPoints(cx, cy)) {
@@ -1410,56 +1622,28 @@ class SpriteEditor {
                 for (let dx = -r; dx < bs - r; dx++) {
                     const px = mx + dx, py = my + dy;
                     if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                        this._setPixel(px, py, c.r, c.g, c.b, c.a);
+                        pixelAction(px, py);
                     }
                 }
             }
         }
+    }
+
+    _drawBrush(cx, cy) {
+        const c = this.colorSystem.color;
+        this._applyBrush(cx, cy, (px, py) => this._setPixel(px, py, c.r, c.g, c.b, c.a));
     }
 
     _eraseBrush(cx, cy) {
-        const bs = this.brushSize;
-        const r = Math.floor(bs / 2);
-        for (const [mx, my] of this._getMirrorPoints(cx, cy)) {
-            for (let dy = -r; dy < bs - r; dy++) {
-                for (let dx = -r; dx < bs - r; dx++) {
-                    const px = mx + dx, py = my + dy;
-                    if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                        this._erasePixel(px, py);
-                    }
-                }
-            }
-        }
+        this._applyBrush(cx, cy, (px, py) => this._erasePixel(px, py));
     }
 
     _lightenBrush(cx, cy) {
-        const bs = this.brushSize;
-        const r = Math.floor(bs / 2);
-        for (const [mx, my] of this._getMirrorPoints(cx, cy)) {
-            for (let dy = -r; dy < bs - r; dy++) {
-                for (let dx = -r; dx < bs - r; dx++) {
-                    const px = mx + dx, py = my + dy;
-                    if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                        this._shiftBrightness(px, py, this.ldStrength);
-                    }
-                }
-            }
-        }
+        this._applyBrush(cx, cy, (px, py) => this._shiftBrightness(px, py, this.ldStrength));
     }
 
     _darkenBrush(cx, cy) {
-        const bs = this.brushSize;
-        const r = Math.floor(bs / 2);
-        for (const [mx, my] of this._getMirrorPoints(cx, cy)) {
-            for (let dy = -r; dy < bs - r; dy++) {
-                for (let dx = -r; dx < bs - r; dx++) {
-                    const px = mx + dx, py = my + dy;
-                    if (px >= 0 && px < this.canvasWidth && py >= 0 && py < this.canvasHeight) {
-                        this._shiftBrightness(px, py, -this.ldStrength);
-                    }
-                }
-            }
-        }
+        this._applyBrush(cx, cy, (px, py) => this._shiftBrightness(px, py, -this.ldStrength));
     }
 
     _shiftBrightness(x, y, amount) {
@@ -1478,28 +1662,45 @@ class SpriteEditor {
         return Math.sqrt(dr * dr + dg * dg + db * db + da * da) <= this.fillTolerance;
     }
 
-    _floodFill(startX, startY) {
-        const c = this.colorSystem.color;
-        const target = this._getPixel(startX, startY);
-        if (this._colorMatch(target, c)) return;
+    _computeSelectionBounds(keys) {
+        const w = this.canvasWidth, h = this.canvasHeight;
+        let minX = w, minY = h, maxX = 0, maxY = 0;
+        for (const key of keys) {
+            const x = key % w, y = Math.floor(key / w);
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+        return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    }
 
+    // Stack-based flood fill from a starting pixel. Walks all connected pixels matching
+    // the target color (within tolerance). Calls pixelAction(x, y) on each visited pixel.
+    // Returns the set of visited pixel keys.
+    _genericFloodFill(startX, startY, target, pixelAction) {
         const w = this.canvasWidth, h = this.canvasHeight;
         const stack = [[startX, startY]];
         const visited = new Set();
-
         while (stack.length > 0) {
             const [x, y] = stack.pop();
             if (x < 0 || x >= w || y < 0 || y >= h) continue;
             const key = y * w + x;
             if (visited.has(key)) continue;
             visited.add(key);
-
             const px = this._getPixel(x, y);
             if (!this._colorMatch(px, target)) continue;
-
-            this._setPixel(x, y, c.r, c.g, c.b, c.a);
+            if (pixelAction) pixelAction(x, y);
             stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
         }
+        return visited;
+    }
+
+    _floodFill(startX, startY) {
+        const c = this.colorSystem.color;
+        const target = this._getPixel(startX, startY);
+        if (this._colorMatch(target, c)) return;
+        this._genericFloodFill(startX, startY, target, (x, y) => this._setPixel(x, y, c.r, c.g, c.b, c.a));
     }
 
     _ditherFill(startX, startY) {
@@ -1507,81 +1708,24 @@ class SpriteEditor {
         const c2 = this.colorSystem.secondaryColor;
         const target = this._getPixel(startX, startY);
         if (this._colorMatch(target, c1)) return;
-
-        const w = this.canvasWidth, h = this.canvasHeight;
-        const stack = [[startX, startY]];
-        const visited = new Set();
-
-        while (stack.length > 0) {
-            const [x, y] = stack.pop();
-            if (x < 0 || x >= w || y < 0 || y >= h) continue;
-            const key = y * w + x;
-            if (visited.has(key)) continue;
-            visited.add(key);
-
-            const px = this._getPixel(x, y);
-            if (!this._colorMatch(px, target)) continue;
-
+        this._genericFloodFill(startX, startY, target, (x, y) => {
             const c = (x + y) % 2 === 0 ? c1 : c2;
             this._setPixel(x, y, c.r, c.g, c.b, c.a);
-            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-        }
+        });
     }
 
     _eraseFill(startX, startY) {
         const target = this._getPixel(startX, startY);
         if (target.r === 0 && target.g === 0 && target.b === 0 && target.a === 0) return;
-
-        const w = this.canvasWidth, h = this.canvasHeight;
-        const stack = [[startX, startY]];
-        const visited = new Set();
-
-        while (stack.length > 0) {
-            const [x, y] = stack.pop();
-            if (x < 0 || x >= w || y < 0 || y >= h) continue;
-            const key = y * w + x;
-            if (visited.has(key)) continue;
-            visited.add(key);
-
-            const px = this._getPixel(x, y);
-            if (!this._colorMatch(px, target)) continue;
-
-            this._erasePixel(x, y);
-            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-        }
+        this._genericFloodFill(startX, startY, target, (x, y) => this._erasePixel(x, y));
     }
 
     _wandSelect(startX, startY) {
         const target = this._getPixel(startX, startY);
-        const w = this.canvasWidth, h = this.canvasHeight;
-        const stack = [[startX, startY]];
-        const visited = new Set();
-
-        while (stack.length > 0) {
-            const [x, y] = stack.pop();
-            if (x < 0 || x >= w || y < 0 || y >= h) continue;
-            const key = y * w + x;
-            if (visited.has(key)) continue;
-            visited.add(key);
-
-            const px = this._getPixel(x, y);
-            if (!this._colorMatch(px, target)) continue;
-
-            stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-        }
-
+        const visited = this._genericFloodFill(startX, startY, target, null);
         if (visited.size === 0) return;
-
         this._wandSelection = visited;
-        let minX = w, minY = h, maxX = 0, maxY = 0;
-        for (const key of visited) {
-            const x = key % w, y = Math.floor(key / w);
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-        }
-        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this.selection = this._computeSelectionBounds(visited);
         this._updateSelectionUI();
     }
 
@@ -1657,6 +1801,8 @@ class SpriteEditor {
         return points;
     }
 
+    // Midpoint circle algorithm (Bresenham variant). Generates pixel coordinates
+    // for a circle outline using 8-fold symmetry and integer arithmetic.
     _computeCirclePixels(cx, cy, ex, ey) {
         const points = [];
         const r = Math.round(Math.sqrt((ex - cx) ** 2 + (ey - cy) ** 2));
@@ -1735,6 +1881,8 @@ class SpriteEditor {
         return points;
     }
 
+    // Midpoint ellipse algorithm. Region 1 increments x while slope < 1,
+    // Region 2 decrements y for the remainder. Uses 4-fold symmetry.
     _computeEllipsePixels(cx, cy, ex, ey, filled) {
         const points = [];
         const rx = Math.abs(ex - cx), ry = Math.abs(ey - cy);
@@ -1791,18 +1939,20 @@ class SpriteEditor {
 
     // --- Transforms ---
 
+    _copyPixel(dst, dstI, src, srcI) {
+        dst[dstI] = src[srcI];
+        dst[dstI + 1] = src[srcI + 1];
+        dst[dstI + 2] = src[srcI + 2];
+        dst[dstI + 3] = src[srcI + 3];
+    }
+
     _flipHorizontal() {
         this._pushUndoSnapshot();
         const w = this.canvasWidth, h = this.canvasHeight;
         const flipped = new Uint8ClampedArray(this.pixels.length);
         for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
-                const srcI = (y * w + x) * 4;
-                const dstI = (y * w + (w - 1 - x)) * 4;
-                flipped[dstI] = this.pixels[srcI];
-                flipped[dstI + 1] = this.pixels[srcI + 1];
-                flipped[dstI + 2] = this.pixels[srcI + 2];
-                flipped[dstI + 3] = this.pixels[srcI + 3];
+                this._copyPixel(flipped, (y * w + (w - 1 - x)) * 4, this.pixels, (y * w + x) * 4);
             }
         }
         this.pixels = flipped;
@@ -1815,12 +1965,7 @@ class SpriteEditor {
         const flipped = new Uint8ClampedArray(this.pixels.length);
         for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
-                const srcI = (y * w + x) * 4;
-                const dstI = ((h - 1 - y) * w + x) * 4;
-                flipped[dstI] = this.pixels[srcI];
-                flipped[dstI + 1] = this.pixels[srcI + 1];
-                flipped[dstI + 2] = this.pixels[srcI + 2];
-                flipped[dstI + 3] = this.pixels[srcI + 3];
+                this._copyPixel(flipped, ((h - 1 - y) * w + x) * 4, this.pixels, (y * w + x) * 4);
             }
         }
         this.pixels = flipped;
@@ -1834,12 +1979,7 @@ class SpriteEditor {
             const rotated = new Uint8ClampedArray(h * w * 4);
             for (let y = 0; y < h; y++) {
                 for (let x = 0; x < w; x++) {
-                    const srcI = (y * w + x) * 4;
-                    const dstI = (x * h + (h - 1 - y)) * 4;
-                    rotated[dstI] = layer.pixels[srcI];
-                    rotated[dstI + 1] = layer.pixels[srcI + 1];
-                    rotated[dstI + 2] = layer.pixels[srcI + 2];
-                    rotated[dstI + 3] = layer.pixels[srcI + 3];
+                    this._copyPixel(rotated, (x * h + (h - 1 - y)) * 4, layer.pixels, (y * w + x) * 4);
                 }
             }
             layer.pixels = rotated;
@@ -1917,6 +2057,7 @@ class SpriteEditor {
     }
 
     _liftSelection() {
+        if (!this._selectionSnapshot) this._selectionSnapshot = this._snapshotLayers();
         const s = this.selection;
         this._selPixels = new Uint8ClampedArray(s.w * s.h * 4);
         for (let dy = 0; dy < s.h; dy++) {
@@ -1946,17 +2087,14 @@ class SpriteEditor {
                 if (tx < 0 || tx >= this.canvasWidth || ty < 0 || ty >= this.canvasHeight) continue;
                 const srcI = (dy * s.w + dx) * 4;
                 if (this._selPixels[srcI + 3] === 0) continue;
-                const dstI = (ty * this.canvasWidth + tx) * 4;
-                this.pixels[dstI] = this._selPixels[srcI];
-                this.pixels[dstI + 1] = this._selPixels[srcI + 1];
-                this.pixels[dstI + 2] = this._selPixels[srcI + 2];
-                this.pixels[dstI + 3] = this._selPixels[srcI + 3];
+                this._copyPixel(this.pixels, (ty * this.canvasWidth + tx) * 4, this._selPixels, srcI);
             }
         }
         this._selPixels = null;
         this._selTrueOrigPixels = null;
         this._selTrueOrigW = 0;
         this._selTrueOrigH = 0;
+        this._selectionSnapshot = null;
         this._pushUndo();
         this.autoSave();
     }
@@ -1977,6 +2115,8 @@ class SpriteEditor {
         return false;
     }
 
+    // Inverse rotation mapping with nearest-neighbor sampling. For each destination
+    // pixel, computes the source coordinate by rotating backward through -angle.
     _rotateSelectionPreview(angle) {
         if (!this._selOrigPixels || !this.selection) return;
         const s = this.selection;
@@ -1986,16 +2126,10 @@ class SpriteEditor {
         const rotated = new Uint8ClampedArray(w * h * 4);
         for (let dy = 0; dy < h; dy++) {
             for (let dx = 0; dx < w; dx++) {
-                const rx = (dx - cx) * cos - (dy - cy) * sin + cx;
-                const ry = (dx - cx) * sin + (dy - cy) * cos + cy;
-                const sx = Math.round(rx), sy = Math.round(ry);
+                const sx = Math.round((dx - cx) * cos - (dy - cy) * sin + cx);
+                const sy = Math.round((dx - cx) * sin + (dy - cy) * cos + cy);
                 if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
-                    const srcI = (sy * w + sx) * 4;
-                    const dstI = (dy * w + dx) * 4;
-                    rotated[dstI] = this._selOrigPixels[srcI];
-                    rotated[dstI + 1] = this._selOrigPixels[srcI + 1];
-                    rotated[dstI + 2] = this._selOrigPixels[srcI + 2];
-                    rotated[dstI + 3] = this._selOrigPixels[srcI + 3];
+                    this._copyPixel(rotated, (dy * w + dx) * 4, this._selOrigPixels, (sy * w + sx) * 4);
                 }
             }
         }
@@ -2004,19 +2138,13 @@ class SpriteEditor {
 
     _stretchSelectionPreview(newW, newH) {
         if (!this._selOrigPixels || !this.selection) return;
-        const s = this.selection;
         const srcW = this._selOrigW, srcH = this._selOrigH;
         const stretched = new Uint8ClampedArray(newW * newH * 4);
         for (let dy = 0; dy < newH; dy++) {
             for (let dx = 0; dx < newW; dx++) {
                 const sx = Math.floor(dx * srcW / newW);
                 const sy = Math.floor(dy * srcH / newH);
-                const srcI = (sy * srcW + sx) * 4;
-                const dstI = (dy * newW + dx) * 4;
-                stretched[dstI] = this._selOrigPixels[srcI];
-                stretched[dstI + 1] = this._selOrigPixels[srcI + 1];
-                stretched[dstI + 2] = this._selOrigPixels[srcI + 2];
-                stretched[dstI + 3] = this._selOrigPixels[srcI + 3];
+                this._copyPixel(stretched, (dy * newW + dx) * 4, this._selOrigPixels, (sy * srcW + sx) * 4);
             }
         }
         this._selPixels = stretched;
@@ -2038,15 +2166,7 @@ class SpriteEditor {
         }
         if (selected.size === 0) return;
         this._wandSelection = selected;
-        let minX = w, minY = h, maxX = 0, maxY = 0;
-        for (const key of selected) {
-            const x = key % w, y = Math.floor(key / w);
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-        }
-        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this.selection = this._computeSelectionBounds(selected);
         this.setTool('wand');
         this._updateSelectionUI();
     }
@@ -2065,15 +2185,7 @@ class SpriteEditor {
         }
         if (inverted.size === 0) { this._wandSelection = null; this.selection = null; this._updateSelectionUI(); return; }
         this._wandSelection = inverted;
-        let minX = w, minY = h, maxX = 0, maxY = 0;
-        for (const key of inverted) {
-            const x = key % w, y = Math.floor(key / w);
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-        }
-        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this.selection = this._computeSelectionBounds(inverted);
         this._updateSelectionUI();
     }
 
@@ -2089,15 +2201,7 @@ class SpriteEditor {
             if (y < h - 1) grown.add(key + w);
         }
         this._wandSelection = grown;
-        let minX = w, minY = h, maxX = 0, maxY = 0;
-        for (const key of grown) {
-            const x = key % w, y = Math.floor(key / w);
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-        }
-        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this.selection = this._computeSelectionBounds(grown);
         this._updateSelectionUI();
     }
 
@@ -2115,15 +2219,7 @@ class SpriteEditor {
         }
         if (shrunk.size === 0) { this._wandSelection = null; this.selection = null; this._updateSelectionUI(); return; }
         this._wandSelection = shrunk;
-        let minX = w, minY = h, maxX = 0, maxY = 0;
-        for (const key of shrunk) {
-            const x = key % w, y = Math.floor(key / w);
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-        }
-        this.selection = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        this.selection = this._computeSelectionBounds(shrunk);
         this._updateSelectionUI();
     }
 
@@ -2218,21 +2314,21 @@ class SpriteEditor {
         }
     }
 
-    _getCompositedCanvas(w, h) {
-        if (!this._compCanvas || this._compCanvas.width !== w || this._compCanvas.height !== h) {
-            this._compCanvas = document.createElement('canvas');
-            this._compCanvas.width = w;
-            this._compCanvas.height = h;
+    _ensureCanvas(prop, w, h) {
+        if (!this[prop] || this[prop].width !== w || this[prop].height !== h) {
+            this[prop] = document.createElement('canvas');
+            this[prop].width = w;
+            this[prop].height = h;
         }
+        return this[prop];
+    }
+
+    _getCompositedCanvas(w, h) {
+        this._ensureCanvas('_compCanvas', w, h);
         const cCtx = this._compCanvas.getContext('2d');
         cCtx.clearRect(0, 0, w, h);
-        if (!this._compTmp || this._compTmp.width !== w || this._compTmp.height !== h) {
-            this._compTmp = document.createElement('canvas');
-            this._compTmp.width = w;
-            this._compTmp.height = h;
-        }
+        this._ensureCanvas('_compTmp', w, h);
         const tmpCtx = this._compTmp.getContext('2d');
-        const blendMap = { normal: 'source-over', multiply: 'multiply', screen: 'screen', overlay: 'overlay', add: 'lighter' };
         for (const layer of this.layers) {
             if (!layer.visible) continue;
             const mode = layer.blendMode || 'normal';
@@ -2250,7 +2346,7 @@ class SpriteEditor {
                 }
                 cCtx.putImageData(baseData, 0, 0);
             } else {
-                cCtx.globalCompositeOperation = blendMap[mode] || 'source-over';
+                cCtx.globalCompositeOperation = BLEND_MODE_MAP[mode] || 'source-over';
                 cCtx.drawImage(this._compTmp, 0, 0);
             }
         }
@@ -2273,8 +2369,9 @@ class SpriteEditor {
 
         const gridW = w * z;
         const gridH = h * z;
-
         const rox = Math.round(ox), roy = Math.round(oy);
+
+        // --- Checkerboard transparency background ---
         ctx.save();
         ctx.beginPath();
         ctx.rect(rox, roy, gridW, gridH);
@@ -2287,6 +2384,7 @@ class SpriteEditor {
         }
         ctx.restore();
 
+        // --- Reference image overlay ---
         if (this.refImage && this.refVisible) {
             ctx.save();
             ctx.globalAlpha = this.refOpacity;
@@ -2295,23 +2393,15 @@ class SpriteEditor {
             ctx.restore();
         }
 
-        if (!this._pixelCanvas || this._pixelCanvas.width !== w || this._pixelCanvas.height !== h) {
-            this._pixelCanvas = document.createElement('canvas');
-            this._pixelCanvas.width = w;
-            this._pixelCanvas.height = h;
-        }
+        // --- Layer compositing ---
+        this._ensureCanvas('_pixelCanvas', w, h);
         const pCtx = this._pixelCanvas.getContext('2d');
         pCtx.clearRect(0, 0, w, h);
-        const blendMap2 = { normal: 'source-over', multiply: 'multiply', screen: 'screen', overlay: 'overlay', add: 'lighter' };
         for (const layer of this.layers) {
             if (!layer.visible) continue;
             const mode = layer.blendMode || 'normal';
             const layerImageData = new ImageData(new Uint8ClampedArray(layer.pixels), w, h);
-            if (!this._layerTmp || this._layerTmp.width !== w || this._layerTmp.height !== h) {
-                this._layerTmp = document.createElement('canvas');
-                this._layerTmp.width = w;
-                this._layerTmp.height = h;
-            }
+            this._ensureCanvas('_layerTmp', w, h);
             const tmpCtx = this._layerTmp.getContext('2d');
             tmpCtx.clearRect(0, 0, w, h);
             tmpCtx.putImageData(layerImageData, 0, 0);
@@ -2327,7 +2417,7 @@ class SpriteEditor {
                 }
                 pCtx.putImageData(baseData, 0, 0);
             } else {
-                pCtx.globalCompositeOperation = blendMap2[mode] || 'source-over';
+                pCtx.globalCompositeOperation = BLEND_MODE_MAP[mode] || 'source-over';
                 pCtx.drawImage(this._layerTmp, 0, 0);
             }
         }
@@ -2336,6 +2426,7 @@ class SpriteEditor {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(this._pixelCanvas, 0, 0, w, h, rox, roy, gridW, gridH);
 
+        // --- Grid lines ---
         if (this.showGrid && z >= 4) {
             ctx.strokeStyle = this.gridColor;
             ctx.lineWidth = 1;
@@ -2385,6 +2476,7 @@ class SpriteEditor {
             ctx.setLineDash([]);
         }
 
+        // --- Mirror axis lines ---
         if (this.mirrorMode) {
             ctx.strokeStyle = 'rgba(255,50,50,0.7)';
             ctx.lineWidth = 2;
@@ -2417,6 +2509,7 @@ class SpriteEditor {
         ctx.lineWidth = 1;
         ctx.strokeRect(rox - 0.5, roy - 0.5, gridW + 1, gridH + 1);
 
+        // --- Selection overlay and shape preview ---
         if (this._selPixels && this.selection) {
             const s = this.selection;
             for (let dy = 0; dy < s.h; dy++) {
@@ -2469,6 +2562,7 @@ class SpriteEditor {
             }
         }
 
+        // --- Cursor highlight ---
         if (this.hoveredPixel) {
             const { x, y } = this.hoveredPixel;
             const bs = this.brushSize;
